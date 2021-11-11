@@ -1,0 +1,6 @@
+version: 0.2
+
+phases:
+  build:
+    commands:
+      - bash -x "${AUTOMATION_HELPER_DIR}"/bash/aws/codebuild/static_site/buildspecs/common/create_artifact/buildspec.sh

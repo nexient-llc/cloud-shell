@@ -1,0 +1,22 @@
+version: 0.2
+
+phases:
+  install:
+    commands:
+      - echo ${CODEBUILD_WEBHOOK_HEAD_REF}
+      - echo ${CODEBUILD_WEBHOOK_HEAD_REF} | sed -r 's@^(refs/heads/)(.+)@\2@'
+      - PR_BRANCH=$(echo ${CODEBUILD_WEBHOOK_HEAD_REF} | sed -r 's@^(refs/heads/)(.+)@\2@')
+      - echo "Pull Request branch is - ${PR_BRANCH}"
+      - echo "Main branch is - ${MAIN_BRANCH}"
+      - git config --global hub.protocol https
+      - git config --global user.email $GITHUB_USER_EMAIL
+      - git config --global user.name $GITHUB_USER_NAME
+      - echo "git checkout \"origin/${MAIN_BRANCH}\""
+      - git checkout "origin/${MAIN_BRANCH}"
+      - echo "git merge --no-commit --no-ff \"origin/${PR_BRANCH}\""
+      - git merge --no-commit --no-ff "origin/${PR_BRANCH}"
+      - echo $?
+      - npm install
+  build:
+    commands:
+      - HUSKY_SKIP_INSTALL=1 npm run build && npm run prepush
