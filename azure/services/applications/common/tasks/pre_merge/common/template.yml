@@ -1,0 +1,47 @@
+parameters:
+- name: sourceDirectory
+  type: string
+  default: false
+
+- name: serviceName
+  type: string
+  default: false
+
+- name: mainBranch
+  type: string
+  default: false
+
+- name: prBranch
+  type: string
+  default: false
+
+- name: gitUserEmail
+  type: string
+  default: false
+
+- name: gitUserName
+  type: string
+  default: false
+
+- name: usersteps
+  type: stepList
+  default: []
+
+jobs:
+- job: ${{ parameters.serviceName }}_ci
+  pool: 
+    vmImage: ubuntu-18.04
+  displayName: ${{ parameters.serviceName }} Continuous Integration 
+  steps:
+  - bash: |
+      echo "git config --global user.email ${{ parameters.gitUserEmail }}"
+      git config --global user.email ${{ parameters.gitUserEmail }}
+      echo "git config --global user.name ${{ parameters.gitUserName }}"
+      git config --global user.name ${{ parameters.gitUserName }}
+      echo "git checkout ${{ parameters.mainBranch }}"
+      git checkout ${{ parameters.mainBranch }}
+      echo "git merge --no-commit --no-ff origin/${{ parameters.prBranch }}"
+      git merge --no-commit --no-ff origin/${{ parameters.prBranch }}
+    displayName: Simulated Merge
+  - ${{ each step in parameters.usersteps }}:
+    - ${{ step }} 

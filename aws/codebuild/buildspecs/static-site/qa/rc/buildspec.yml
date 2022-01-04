@@ -1,0 +1,22 @@
+version: 0.2
+
+phases:
+  build:
+    commands:
+      - ARTIFACT_TYPE="rc"
+      - VERSION="$(date +%Y-%m-%d-%s)"
+      - SYSTEM_DEPS="python python-pip groff gawk jq"
+      - PYTHON_DEPS="awscli"
+      - apt-get update && apt-get install -y ${SYSTEM_DEPS}
+      - pip install ${PYTHON_DEPS}
+      - git config --global hub.protocol https
+      - git config --global user.email ${GITHUB_USER_EMAIL}
+      - git config --global user.name ${GITHUB_USERNAME}
+      - git remote set-url origin "https://${GITHUB_TOKEN}:x-oauth-basic@github.com/${APP_REPO}"
+      - npm install
+      - HUSKY_SKIP_INSTALL=1 npm run build || exit 1
+      - git tag "${VERSION}"
+      - git push origin "${VERSION}"
+      - aws s3api put-object --bucket ${ARTIFACT_S3_BUCKET} --key ${APP_NAME}-${ARTIFACT_TYPE}-${VERSION}/
+      - aws s3 cp ${ARTIFACT_FILE} s3://${ARTIFACT_S3_BUCKET}/${APP_NAME}-${ARTIFACT_TYPE}-${VERSION}/
+      - bash -x ${CLOUD_SHELL_DIR}/aws/codebuild/scripts/trigger_environment_deploy.sh

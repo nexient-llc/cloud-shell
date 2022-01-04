@@ -1,0 +1,89 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "funcAppName": {
+      "type": "string"
+    },
+    "deploymentSlots": {
+      "type": "array",
+      "defaultValue": [
+        "false"
+      ]
+    },
+    "hostingPlanName": {
+      "type": "string"
+    },
+    "location": {
+      "type": "string"
+    },
+    "vnetName": {
+      "type": "string"
+    },
+    "subnetName": {
+      "type": "string"
+    },
+    "subnetAddrPrefix": {
+      "type": "string"
+    },
+    "netSecGroupName": {
+      "type": "string"
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Web/sites/networkConfig",
+      "name": "[concat(parameters('funcAppName'), '/virtualNetwork')]",
+      "apiVersion": "2018-11-01",
+      "location": "[parameters('location')]",
+      "properties": {
+        "subnetResourceId": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), parameters('subnetName'))]",
+        "isSwift": true
+      }
+    },
+    {
+      "type": "Microsoft.Web/sites/slots/networkConfig",
+      "name": "[concat(parameters('funcAppName'), '/', parameters('deploymentSlots')[copyIndex()], '/virtualNetwork')]",
+      "apiVersion": "2018-11-01",
+      "location": "[parameters('location')]",
+      "copy": {
+        "name": "deploymentSlotLoop",
+        "count": "[length(parameters('deploymentSlots'))]"
+      },
+      "properties": {
+        "subnetResourceId": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), parameters('subnetName'))]",
+        "isSwift": true
+      }
+    },
+    {
+      "type": "Microsoft.Network/networkSecurityGroups",
+      "name": "[parameters('netSecGroupName')]",
+      "apiVersion": "2019-02-01",
+      "location": "[parameters('location')]",
+      "properties": {}
+    },
+    {
+      "type": "Microsoft.Network/virtualNetworks/subnets",
+      "name": "[concat(parameters('vnetName'), '/', parameters('subnetName'))]",
+      "apiVersion": "2020-05-01",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('netSecGroupName'))]"
+      ],
+      "properties": {
+        "addressPrefix": "[parameters('subnetAddrPrefix')]",
+        "networkSecurityGroup": {
+          "id": "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('netSecGroupName'))]"
+        },
+        "delegations": [
+          {
+            "name": "[parameters('hostingPlanName')]",
+            "properties": {
+              "serviceName": "Microsoft.Web/serverFarms"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

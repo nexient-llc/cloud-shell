@@ -1,0 +1,129 @@
+parameters:
+  - name: condition
+    type: string
+    default: true
+
+  - name: sourceDirectory
+    type: string
+    default: false
+
+  - name: createFromExisting
+    type: string
+    default: false
+
+  - name: tagsIncludeName
+    type: string
+    default: false
+
+  - name: serviceName
+    type: string
+    default: false
+
+  - name: jobName
+    type: string
+    default: false
+
+  - name: displayName
+    type: string
+    default: false
+
+  - name: buildSteps
+    type: stepList
+    default: []
+
+  - name: acrRepository
+    type: string
+    default: false
+
+  - name: artifactType
+    type: string
+    default: false
+
+  - name: registryServiceConnection
+    type: string
+    default: false
+
+  - name: registryArmServiceConnection
+    type: string
+    default: false
+
+  - name: containerRegistryUrl
+    type: string
+    default: false
+  
+  - name: acrSubscriptionId
+    type: string
+    default: false
+
+  - name: acrResourceGroup
+    type: string
+    default: false
+
+jobs:
+  - job: ${{ parameters.jobName }}
+    pool:
+      vmImage: ubuntu-18.04
+    condition: ${{ parameters.condition }}
+    displayName: ${{ parameters.displayName }}
+    steps:
+      # Clone the applciation into $(Pipeline.Workspace)
+      - checkout: self
+        persistCredentials: true
+
+      # If `parameters.createFromExisting` is not set,
+      - ${{ if eq(parameters.createFromExisting, false) }}:
+          # Tag the application with a date-based version...
+          - task: Bash@3
+            displayName: Tag
+            inputs:
+              workingDirectory: ${{ parameters.sourceDirectory }}
+              targetType: inline
+              script: |
+                VERSION=$(date +%-Y.%-m.%-d-%-s)
+                echo "##vso[task.setvariable variable=VERSION]$(echo ${VERSION})"
+                echo "Version: ${VERSION}"
+
+                # If `parameters.tagsIncludeName` is true, then include application name
+                [ "${{ lower(parameters.tagsIncludeName) }}" == "true" ] && \
+                  git tag "${{ parameters.serviceName }}/${VERSION}"
+
+                # If `parameters.tagsIncludeName` is not true, then tag with only the version
+                [ "${{ lower(parameters.tagsIncludeName) }}" != "true" ] && \
+                  git tag "${VERSION}"
+
+                git push --tags && git fetch --tags origin
+
+          # ... and build a new artifact
+          - ${{ each step in parameters.buildSteps }}:
+              - ${{ step }}
+
+          - task: Docker@2
+            displayName: Push image
+            inputs:
+              command: push
+              containerRegistry: ${{ parameters.registryServiceConnection }}
+              repository: ${{ parameters.acrRepository }}
+              tags: |
+                ${{ parameters.artifactType }}-$(VERSION)
+
+      - ${{ if ne(parameters.createFromExisting, false) }}:
+          - template: ./version-determination-step.yml
+            parameters:
+              sourceDirectory: ${{ parameters.sourceDirectory }}
+              tagsIncludeName: ${{ parameters.tagsIncludeName }}
+              serviceName: ${{ parameters.serviceName }}
+
+          - task: AzureCLI@2
+            displayName: Pull, Tag and Push
+            inputs:
+              scriptType: bash
+              azureSubscription: ${{ parameters.registryArmServiceConnection }}
+              scriptLocation: inlineScript
+              inlineScript: |
+                az acr import \
+                  -n ${{ parameters.containerRegistryUrl }} \
+                  --source ${{ parameters.acrRepository }}:${{ parameters.createFromExisting }}-$(VERSION) \
+                  --registry ${{ parameters.containerRegistryUrl }} \
+                  -t ${{ parameters.acrRepository }}:${{ parameters.artifactType }}-$(VERSION) \
+                  --subscription ${{ parameters.acrSubscriptionId }} \
+                  --resource-group ${{ parameters.acrResourceGroup }}

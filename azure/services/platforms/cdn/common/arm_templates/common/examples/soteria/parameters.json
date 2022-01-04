@@ -1,0 +1,63 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": {
+      "value": "eastus2"
+    },
+    "storageAccountName": {
+      "value": "dtesoteriadevsa"
+    },
+    "storageAccountKind": {
+      "value": "StorageV2"
+    },
+    "storageAccountSku": {
+      "value": "Standard_LRS"
+    },
+    "cdnProfileName": {
+      "value": "dte-soteria-dev-cdn"
+    },
+    "cdnProfileSku": {
+      "value": "Standard_Microsoft"
+    },
+    "httpAllowed": {
+      "value": false
+    },
+    "queryStringCachingBehavior": {
+      "value": "IgnoreQueryString"
+    },
+    "contentTypesToCompress": {
+      "value": [
+        "text/plain",
+        "text/html",
+        "text/css",
+        "application/x-javascript",
+        "text/javascript"
+      ]
+    },
+    "compressionEnabled": {
+      "value": true
+    },
+    "keyVaultName": {
+      "value": "dte-e2-dev-sot20-kv"
+    },
+    "cdnObjectId": {
+      "type": "6c4a86dd-b541-4017-b308-1ef20fda3ee1"
+    },
+    "cdnEndpointName": {
+      "value": "dte-soteria-dev-cdn-endpoint"
+    },
+    "customDomainConfig": {
+      "value": [
+        {
+          "name": "dte-soteria-dev-custom-endpoint",
+          "hostName": "dev.swo.dteenergy.com"
+        },
+        {
+          "name": "inactive-dev-swo-dteenergy-com",
+          "hostName": "inactive.dev.swo.dteenergy.com"
+        }
+      ]
+    }
+  }
+}

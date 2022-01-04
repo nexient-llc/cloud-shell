@@ -1,0 +1,103 @@
+parameters:
+- name: sourceDirectory
+  type: string
+  default: false
+
+- name: condition
+  type: string
+  default: true
+
+- name: funcDirectory
+  type: string
+  default: false
+
+- name: serviceName
+  type: string
+  default: false
+
+- name: artifactName
+  type: string
+  default: false
+
+- name: artifactFeed
+  type: string
+  default: false  
+
+- name: artifactType
+  type: string
+  default: false
+  
+- name: jobName
+  type: string
+  default: false
+
+- name: displayName
+  type: string
+  default: false
+
+- name: createFromExisting
+  type: string
+  default: false
+
+- name: tagsIncludeName
+  type: boolean
+  default: false
+
+- name: outputDirectory
+  type: string
+  default: '$(Build.ArtifactStagingDirectory)'
+
+- name: runtimeVersion
+  type: string
+  default: false
+
+jobs: 
+- template: ../common/template.yml@cloud-shell
+  parameters: 
+    jobName: ${{ parameters.jobName }}
+    condition: ${{ parameters.condition }}
+    displayName: ${{ parameters.displayName }}
+    artifactType: ${{ parameters.artifactType }}
+    artifactFeed: ${{ parameters.artifactFeed }}
+    artifactName: ${{ parameters.artifactName }}
+    serviceName: ${{ parameters.serviceName }}
+    sourceDirectory: ${{ parameters.sourceDirectory }}
+    createFromExisting: ${{ parameters.createFromExisting }}
+    tagsIncludeName: ${{ parameters.tagsIncludeName }}
+    version: $(VERSION)
+    buildSteps:
+    - ${{ if ne(parameters.runtimeVersion, false) }}:
+      - task: UseDotNet@2
+        displayName: 'Use .NET Core sdk'
+        inputs:
+          packageType: sdk
+          version: ${{ parameters.runtimeVersion }}
+          installationPath: $(Agent.ToolsDirectory)/dotnet
+
+    # Restore application dependencies
+    - task: DotnetCoreCLI@2
+      displayName: Restore
+      inputs: 
+        command: 'restore'
+        projects: |
+          ${{ parameters.sourceDirectory }}
+        workingDirectory: ${{ parameters.sourceDirectory }}
+    
+    # Run unit tests
+    - task: DotnetCoreCLI@2
+      displayName: Test
+      inputs: 
+        command: 'test'
+        workingDirectory: ${{ parameters.sourceDirectory }}
+
+    # Publish the project of the function app to the artifact staging directory
+    - task: DotnetCoreCLI@2
+      displayName: Publish
+      inputs: 
+        command: 'publish'
+        arguments: '--configuration Release -o ${{ parameters.outputDirectory }}'
+        publishWebProjects: false 
+        zipAfterPublish: true
+        projects: |
+          ${{ parameters.funcDirectory }}
+        workingDirectory: ${{ parameters.funcDirectory }}

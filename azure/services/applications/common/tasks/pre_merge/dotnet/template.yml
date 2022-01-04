@@ -1,0 +1,65 @@
+parameters:
+- name: services 
+  type: object
+  default: []
+
+- name: mainBranch
+  type: string
+  default: false
+
+- name: prBranch
+  type: string
+  default: false
+
+- name: gitUserEmail
+  type: string
+  default: false
+
+- name: gitUserName
+  type: string
+  default: false
+
+- name: runtimeVersion
+  type: string
+  default: false
+
+jobs:
+- ${{ each service in parameters.services }}:
+  - template: ../common/template.yml@cloud-shell
+    parameters:
+      mainBranch: ${{ parameters.mainBranch }}
+      prBranch: ${{ parameters.prBranch }}
+      gitUserEmail: ${{ parameters.gitUserEmail }}
+      gitUserName: ${{ parameters.gitUserName }}
+      serviceName: ${{ service.serviceName }}
+      usersteps:
+      - ${{ if ne(parameters.runtimeVersion, false) }}:
+        - task: UseDotNet@2
+          displayName: 'Use .NET Core sdk'
+          inputs:
+            packageType: sdk
+            version: ${{ parameters.runtimeVersion }}
+            installationPath: $(Agent.ToolsDirectory)/dotnet
+
+      # Restore application dependencies
+      - task: DotnetCoreCLI@2
+        displayName: Restore
+        inputs: 
+          command: 'restore'
+          projects: |
+            ${{ service.sourceDirectory }}
+          workingDirectory: ${{ service.sourceDirectory }}
+      
+      # Run unit tests
+      - task: DotnetCoreCLI@2
+        displayName: Test
+        inputs: 
+          command: 'test'
+          workingDirectory: ${{ service.sourceDirectory }}
+
+      # Publish the project of the function app to the artifact staging directory
+      - task: DotnetCoreCLI@2
+        displayName: Build
+        inputs: 
+          command: 'build'
+          workingDirectory: ${{ service.sourceDirectory }}

@@ -1,0 +1,171 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "serverName": {
+      "type": "string",
+      "metadata": {
+        "description": "The name of the SQL logical server."
+      }
+    },
+    "sqlDbName": {
+      "type": "string",
+      "metadata": {
+        "description": "The name of the SQL Database."
+      }
+    },
+    "sqlDbSkuTier": {
+      "type": "string",
+      "defaultValue": "GeneralPurpose",
+      "metadata": {
+        "description": "The SKU tier (i.e. GeneralPurpose) of the SQL Database."
+      }
+    },
+    "sqlDbSkuName": {
+      "type": "string",
+      "defaultValue": "GP_S_Gen5_4",
+      "metadata": {
+        "description": "The SKU name (i.e. GP_S_Gen5_4) of the SQL Database."
+      }
+    },
+    "sqlDbMinCapacity": {
+      "type": "string",
+      "defaultValue": "0.5",
+      "metadata": {
+        "description": "Minimum number of Vcores to allocate"
+      }
+    },
+    "sqlDbAutoPauseDelay": {
+      "type": "string",
+      "defaultValue": "60",
+      "metadata": {
+        "description": "Period of inactivity after which database is paused"
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Location for all resources."
+      }
+    },
+    "administratorLogin": {
+      "type": "string",
+      "metadata": {
+        "description": "The administrator username of the SQL logical server."
+      }
+    },
+    "administratorLoginPassword": {
+      "type": "securestring",
+      "metadata": {
+        "description": "The administrator password of the SQL logical server."
+      }
+    },
+    "allowAllAzureConnections": {
+      "type": "bool",
+      "metadata": {
+        "description": "Enable connections for all Azure services"
+      },
+      "defaultValue": false
+    },
+    "minTlsVersion": {
+      "type": "string",
+      "metadata": {
+        "description": "Set minimal TLS version"
+      },
+      "defaultValue": "1.2"
+    },
+    "administrators": {
+      "type": "object",
+      "metadata": {
+        "description": "Administrator configuration object"
+      },
+      "defaultValue": null
+    },
+    "ipWhitelistEntries": {
+      "type": "array",
+      "metadata": {
+        "description": "Ip whitelist information"
+      },
+      "defaultValue": []
+    },
+    "zoneRedundantDb": {
+      "type": "bool",
+      "metadata": {
+        "description": "Enable zone-redundancy on the database"
+      },
+      "defaultValue": false
+    }
+  },
+  "variables": {},
+  "resources": [
+    {
+      "type": "Microsoft.Sql/servers",
+      "apiVersion": "2020-02-02-preview",
+      "name": "[parameters('serverName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "administratorLogin": "[parameters('administratorLogin')]",
+        "administratorLoginPassword": "[parameters('administratorLoginPassword')]",
+        "minimalTlsVersion": "[parameters('minTlsVersion')]"
+      },
+      "resources": [
+        {
+          "type": "databases",
+          "apiVersion": "2020-08-01-preview",
+          "name": "[parameters('sqlDbName')]",
+          "location": "[parameters('location')]",
+          "sku": {
+            "name": "[parameters('sqlDbSkuName')]",
+            "tier": "[parameters('sqlDbSkuTier')]"
+          },
+          "properties": {
+            "minCapacity": "[parameters('sqlDbMinCapacity')]",
+            "autoPauseDelay": "[parameters('sqlDbAutoPauseDelay')]",
+            "zoneRedundant": "[parameters('zoneRedundantDb')]"
+          },
+          "dependsOn": [
+            "[resourceId('Microsoft.Sql/servers', concat(parameters('serverName')))]"
+          ]
+        },
+        {
+          "type": "Microsoft.Sql/servers/firewallRules",
+          "condition": "[parameters('allowAllAzureConnections')]",
+          "apiVersion": "2021-05-01-preview",
+          "dependsOn": [
+            "[resourceId('Microsoft.Sql/servers', parameters('serverName'))]"
+          ],
+          "name": "[concat(parameters('serverName'), '/AllowAllAzure')]",
+          "properties": {
+            "endIpAddress": "0.0.0.0",
+            "startIpAddress": "0.0.0.0"
+          }
+        },
+        {
+          "type": "Microsoft.Sql/servers/administrators",
+          "condition": "[not(equals(parameters('administrators'), null()))]",
+          "name": "[concat(parameters('serverName'), '/activeDirectory')]",
+          "apiVersion": "2021-05-01-preview",
+          "properties": "[parameters('administrators')]",
+          "dependsOn": [
+              "[concat('Microsoft.Sql/servers/', parameters('serverName'))]"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "Microsoft.Sql/servers/firewallRules",
+      "condition": "[parameters('allowAllAzureConnections')]",
+      "apiVersion": "2021-05-01-preview",
+      "name": "[concat(parameters('serverName'), '/', parameters('ipWhitelistEntries')[copyIndex('ipWhitelistLoop')].description)]",
+      "properties": {
+        "endIpAddress": "[parameters('ipWhitelistEntries')[copyIndex('ipWhitelistLoop')].endIpAddress]",
+        "startIpAddress": "[parameters('ipWhitelistEntries')[copyIndex('ipWhitelistLoop')].startIpAddress]"
+      },
+      "copy": {
+        "name": "ipWhitelistLoop",
+        "count": "[length(parameters('ipWhitelistEntries'))]"
+      }
+    }
+  ]
+}

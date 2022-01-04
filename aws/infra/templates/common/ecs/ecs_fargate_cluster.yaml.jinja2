@@ -1,0 +1,7 @@
+clusterName: {{ inputs.fargate_cluster.cluster_name }}
+tags: 
+- key: 'ResourceTag'
+  value: {{ inputs.tags.name }}
+capacityProviders:
+- 'FARGATE'
+

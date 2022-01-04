@@ -1,0 +1,132 @@
+parameters:
+- name: deploymentName
+  type: string
+  default: false
+
+- name: environmentName
+  type: string
+  default: false
+
+- name: condition
+  type: string
+  default: true
+
+- name: dependsOn
+  type: object
+  default: []
+
+- name: userSteps
+  type: stepList
+  default: []
+
+- name: version
+  type: string
+  default: false
+
+- name: artifactType
+  type: string
+  default: false
+
+- name: artifactName
+  type: string
+  default: false
+
+- name: artifactFeed
+  type: string
+  default: false
+
+- name: deploymentSlot
+  type: string
+  default: production
+
+- name: resourceGroup
+  type: string
+  default: false
+
+- name: serviceConnection
+  type: string
+  default: false
+
+- name: funcAppSettings
+  type: object
+  default: []
+
+- name: funcAppName
+  type: string
+  default: false
+
+- name: tagsIncludeName
+  type: string
+  default: false
+
+jobs:
+- template: /azure/services/applications/common/tasks/deploy/template.yml@cloud-shell
+  parameters:
+    deploymentName: ${{ parameters.deploymentName }}
+    environmentName: ${{ parameters.environmentName }}
+    condition: ${{ parameters.condition }}
+    dependsOn: ${{ parameters.dependsOn }}
+    artifactName: ${{ parameters.artifactName }}
+    artifactType: ${{ parameters.artifactType }}
+    artifactFeed: ${{ parameters.artifactFeed }}
+    version: ${{ parameters.version }}
+    tagsIncludeName: ${{ parameters.tagsIncludeName }}
+    userSteps:
+
+    # Deploy artifact to the function app, production slot by default
+    - task: AzureFunctionApp@1
+      displayName: Deploy Artifact to Function App
+      inputs:
+        azureSubscription: ${{ parameters.serviceConnection }}
+        package: '$(Pipeline.Workspace)/${{ parameters.artifactType }}-$(VERSION).zip'
+        appType: 'functionApp'
+        appName: ${{ parameters.funcAppName }}    
+        deploymentMethod: 'auto'
+        resourceGroupName: ${{ parameters.resourceGroup }}
+        slotName: ${{ parameters.deploymentSlot }}
+        deployToSlotOrASE: true
+
+    # Initialize an empty JSON object
+    - task: Bash@3
+      displayName: Initialize Settings Object
+      env:
+        ENVIRONMENT_OBJECT: $(ENVIRONMENT_OBJECT)
+      inputs:
+        workingDirectory: $(Pipeline.Workspace)
+        targetType: inline
+        script: |
+          echo "##vso[task.setvariable variable=ENVIRONMENT_OBJECT]{}"
+      
+    # Deep merge (priority ordered) environment variable files into a single object
+    - ${{ each file in parameters.funcAppSettings }}:
+      - task: Bash@3
+        displayName: Read Function App Settings
+        env:
+          ENVIRONMENT_OBJECT: $(ENVIRONMENT_OBJECT)
+        inputs:
+          workingDirectory: $(Pipeline.Workspace)
+          targetType: inline
+          script: |
+            export ENVIRONMENT_OBJECT=$(jq -s '.[1] * .[0]' application/${{ file }} <(echo ${ENVIRONMENT_OBJECT}))
+            echo "##vso[task.setvariable variable=ENVIRONMENT_OBJECT]$(echo ${ENVIRONMENT_OBJECT})"
+            echo ${ENVIRONMENT_OBJECT} | jq -r .
+
+    # Apply the environment variables to the function app
+    - task: AzureCLI@2
+      displayName: Apply Function App Settings
+      inputs:
+        scriptType: bash
+        scriptLocation: inlineScript
+        workingDirectory: $(Pipeline.Workspace)
+        azureSubscription: ${{ parameters.serviceConnection }}
+        inlineScript: |
+          source cloud-shell/azure/shell_functions/applications/functions/functions.sh
+          set_function_runtime_environment_vars \
+            ${{ parameters.resourceGroup }} \
+            ${{ parameters.funcAppName }} \
+            ${{ parameters.deploymentSlot }} \
+            '$(ENVIRONMENT_OBJECT)'
+
+    # Allow this template to be extended
+    - ${{ each step in parameters.userSteps }}:
+      - ${{ step }}

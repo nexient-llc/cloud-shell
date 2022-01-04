@@ -1,0 +1,37 @@
+parameters:
+- name: jobName
+  type: string
+  default: false  
+
+- name: displayName
+  type: string
+  default: false
+
+- name: jobTimeoutInMinutes
+  type: string
+  default: false
+
+- name: taskTimeoutInMinutes
+  type: string
+  default: false
+
+- name: instructions
+  type: string
+  default: false
+
+- name: onTimeout
+  type: string
+  default: false
+
+jobs: 
+- job: ${{ parameters.jobName }}
+  displayName: ${{ parameters.displayName }}
+  timeoutInMinutes: ${{ parameters.jobTimeoutInMinutes}}
+  pool: 'server'
+  steps:
+  # Add in manual validations
+  - task: ManualValidation@0
+    timeoutInMinutes:  ${{ parameters.taskTimeOutInMinutes }}
+    inputs:
+      instructions: ${{ parameters.instructions }}
+      onTimeout: '${{ parameters.onTimeout }}'

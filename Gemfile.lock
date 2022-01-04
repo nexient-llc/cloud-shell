@@ -1,0 +1,16 @@
+GEM
+  specs:
+    mixlib-shellout (3.0.9)
+    thor (1.0.1)
+    thor-scmversion (1.7.0)
+      mixlib-shellout
+      thor
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  thor-scmversion (~> 1.7)
+
+BUNDLED WITH
+   2.1.4

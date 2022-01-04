@@ -1,0 +1,69 @@
+parameters:
+- name: deploymentName
+  type: string
+  default: false
+
+- name: environmentName
+  type: string
+  default: false
+
+- name: condition
+  type: string
+  default: true
+
+- name: dependsOn
+  type: object
+  default: []
+
+- name: resourceGroup
+  type: string
+  default: false
+
+- name: serviceConnection
+  type: string
+  default: false
+
+- name: armTemplate
+  type: string
+  default: false
+
+- name: armTemplateParams
+  type: object
+  default: []
+
+- name: sslConfigs
+  type: object
+  default: []
+
+
+jobs:
+- template: /azure/services/platforms/common/tasks/deploy/template.yml@cloud-shell
+  parameters:
+    deploymentName: ${{ parameters.deploymentName }}
+    environmentName: ${{ parameters.environmentName }}
+    condition: ${{ parameters.condition }}
+    resourceGroup: ${{ parameters.resourceGroup }}
+    serviceConnection: ${{ parameters.serviceConnection }}
+    armTemplate: ${{ parameters.armTemplate }}
+    armTemplateParams: ${{ parameters.armTemplateParams }}
+    dependsOn: ${{ parameters.dependsOn }}
+    userSteps:
+      # Apply SSL certificate to Front Door endpoint
+      - ${{ each sslConfig in parameters.sslConfigs }}:  
+        - task: AzureCLI@2
+          displayName: Enable HTTPS for ${{ sslConfig.frontendEndpointName }}
+          inputs:
+            scriptType: bash
+            workingDirectory: $(Pipeline.Workspace)
+            azureSubscription: ${{  parameters.serviceConnection }}
+            scriptLocation: inlineScript
+            inlineScript: |
+              source cloud-shell/azure/shell_functions/platforms/webapp/functions.sh
+              enable_https_on_custom_domain \
+                ${{ parameters.resourceGroup }} \
+                ${{ sslConfig.frontDoorName }} \
+                ${{ sslConfig.frontendEndpointName }} \
+                ${{ sslConfig.certificateSource }} \
+                ${{ sslConfig.minTlsVersion }} \
+                ${{ sslConfig.secretName }} \
+                ${{ sslConfig.vaultId }}

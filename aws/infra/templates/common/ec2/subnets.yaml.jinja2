@@ -1,0 +1,14 @@
+{% for subnet in inputs.subnets -%}
+- TagSpecifications:
+    - ResourceType: subnet
+      Tags:
+      - Key: 'Name'
+        Value: {{ subnet.name }}
+      - Key: 'Environment'
+        Value: {{ subnet.env }}
+      - Key: 'ResourceTag'
+        Value: {{ inputs.tags.name }}
+  AvailabilityZone: {{ subnet.availability_zone }}
+  CidrBlock: {{ subnet.cidr_block }}
+  VpcId: {{ subnet.vpc_id }}
+{% endfor -%}

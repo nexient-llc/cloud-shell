@@ -1,0 +1,78 @@
+parameters:
+  - name: environments
+    type: object
+    default: []
+
+  - name: common
+    type: object
+    default: []
+
+stages:
+  - ${{ each env in parameters.environments }}:
+      - template: /azure/services/applications/common/pipelines/single_env/docker-template.yml@cloud-shell
+        parameters:
+          common: ${{ parameters.common }}
+          env: ${{ env }}
+          deployStages:
+            - ${{ if eq(env.manualValidation, true) }}:
+                - stage: ${{ env.shortName }}_predeploy
+                  jobs:
+                    - template: /azure/services/common/tasks/manual_validation/template.yml@cloud-shell
+                      parameters:
+                        jobName: ${{ env.shortName }}_manual_validation
+                        displayName: Manual Validation
+                        jobTimeoutInMinutes: ${{ coalesce(env.common.jobTimeoutInMinutes, parameters.common.jobTimeoutInMinutes) }}
+                        taskTimeoutInMinutes: ${{ coalesce(env.common.taskTimeoutInMinutes, parameters.common.taskTimeoutInMinutes) }}
+                        onTimeout: ${{ coalesce(env.common.onTimeout, parameters.common.onTimeout) }}
+
+            - stage: ${{ env.shortName }}_cd
+              jobs:
+                - ${{ each deployment in env.deployments }}:
+                    - template: /azure/services/applications/webapp/tasks/deploy/template.yml@cloud-shell
+                      parameters:
+                        deploymentName: ${{ deployment.name }}
+                        environmentName: ${{ env.fullName }}
+                        dependsOn: ${{ deployment.dependsOn }}
+                        condition: ${{ coalesce(deployment.condition, env.common.condition, parameters.common.condition, true) }}
+                        resourceGroup: ${{ coalesce(deployment.resourceGroup, env.common.resourceGroup, parameters.common.resourceGroup, false) }}
+                        serviceConnection: ${{ coalesce(deployment.serviceConnection, env.common.serviceConnection, parameters.common.serviceConnection, false) }}
+                        version: ${{ coalesce(deployment.version, env.common.version, parameters.common.version, false) }}
+                        tagsIncludeName: ${{ coalesce(deployment.tagsIncludeName, env.common.tagsIncludeName, parameters.common.tagsIncludeName) }}
+                        artifactType: ${{ coalesce(deployment.artifactType, env.common.artifactType, parameters.common.artifactType, false) }}
+                        deploymentSlot: ${{ coalesce(deployment.deploymentSlot, env.common.deploymentSlot, parameters.common.deploymentSlot, 'production') }}
+                        containerRegistryUrl: ${{ coalesce(deployment.containerRegistryUrl, env.common.containerRegistryUrl, parameters.common.containerRegistryUrl, false) }}
+                        acrRepository: ${{ coalesce(deployment.acrRepository, env.common.acrRepository, parameters.common.acrRepository, false) }}
+                        webAppName: ${{ coalesce(deployment.webAppName, env.common.webAppName, parameters.common.webAppName, false) }}
+                        webAppSettings:
+                          - ${{ each settingsFile in parameters.common.webAppSettings }}:
+                              - ${{ settingsFile }}
+                          - ${{ each settingsFile in env.common.webAppSettings }}:
+                              - ${{ settingsFile }}
+                          - ${{ each settingsFile in deployment.webAppSettings }}:
+                              - ${{ settingsFile }}
+
+
+            - ${{ if ne(coalesce(env.swapEnabled, true), false) }}:
+                - ${{ if eq(env.manualValidation, true) }}:
+                    - stage: ${{ env.shortName }}_preswap
+                      jobs:
+                        - template: /azure/services/common/tasks/manual_validation/template.yml@cloud-shell
+                          parameters:
+                            jobName: ${{ env.shortName }}_manual_validation
+                            displayName: Manual Validation
+                            jobTimeoutInMinutes: ${{ coalesce(env.common.jobTimeoutInMinutes, parameters.common.jobTimeoutInMinutes) }}
+                            taskTimeoutInMinutes: ${{ coalesce(env.common.taskTimeoutInMinutes, parameters.common.taskTimeoutInMinutes) }}
+                            onTimeout: ${{ coalesce(env.common.onTimeout, parameters.common.onTimeout) }}
+
+                - stage: ${{ env.shortName }}_swap
+                  jobs:
+                    - ${{ each deployment in env.deployments }}:
+                        - template: /azure/services/applications/webapp/tasks/swap_slot/template.yml@cloud-shell
+                          parameters:
+                            deploymentName: ${{ deployment.name }}
+                            environmentName: ${{ env.fullName }}
+                            condition: ${{ coalesce(deployment.condition, env.common.condition, parameters.common.condition, true) }}
+                            resourceGroup: ${{ coalesce(deployment.resourceGroup, env.common.resourceGroup, parameters.common.resourceGroup, false) }}
+                            serviceConnection: ${{ coalesce(deployment.serviceConnection, env.common.serviceConnection, parameters.common.serviceConnection, false) }}
+                            slotToSetActive: ${{ coalesce(deployment.deploymentSlot, env.common.deploymentSlot, parameters.common.deploymentSlot, false) }}
+                            webAppName: ${{ coalesce(deployment.webAppName, env.common.webAppName, parameters.common.webAppName, false) }}

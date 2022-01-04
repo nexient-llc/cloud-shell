@@ -1,0 +1,30 @@
+parameters:
+  - name: appSettings
+    type: object
+    default: []
+
+steps:
+  # Initialize an empty JSON object
+  - task: Bash@3
+    displayName: Initialize Settings Object
+    env:
+      ENVIRONMENT_OBJECT: $(ENVIRONMENT_OBJECT)
+    inputs:
+      workingDirectory: $(Pipeline.Workspace)
+      targetType: inline
+      script: |
+        echo "##vso[task.setvariable variable=ENVIRONMENT_OBJECT]{}"
+
+  # Deep merge (priority ordered) environment variable files into a single object
+  - ${{ each file in parameters.appSettings }}:
+      - task: Bash@3
+        displayName: Read App Settings
+        env:
+          ENVIRONMENT_OBJECT: $(ENVIRONMENT_OBJECT)
+        inputs:
+          workingDirectory: $(Pipeline.Workspace)
+          targetType: inline
+          script: |
+            export ENVIRONMENT_OBJECT=$(jq -s '.[1] * .[0]' application/${{ file }} <(echo ${ENVIRONMENT_OBJECT}))
+            echo "##vso[task.setvariable variable=ENVIRONMENT_OBJECT]$(echo ${ENVIRONMENT_OBJECT})"
+            echo ${ENVIRONMENT_OBJECT} | jq -r .

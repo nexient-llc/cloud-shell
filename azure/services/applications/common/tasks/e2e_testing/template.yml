@@ -1,0 +1,30 @@
+parameters:
+- name: commands
+  type: object
+  default: []
+
+- name: workingDirectory
+  type: string
+  default: false
+
+- name: condition
+  type: string
+  default: true
+
+jobs: 
+- job: Run_E2E_Tests
+  pool: 
+    vmImage: ubuntu-18.04
+  condition: ${{ parameters.condition }}
+  steps:
+  - checkout: self
+  
+  - ${{ each value in parameters.commands }}:
+    - task: Bash@3
+      displayName: ${{ value }}
+      inputs:
+        workingDirectory: $(Build.SourcesDirectory)/${{ parameters.workingDirectory }}
+        targetType: inline
+        script: |
+          echo ${{ value }}
+          ${{ value }}

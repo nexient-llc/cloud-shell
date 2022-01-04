@@ -1,0 +1,334 @@
+parameters:
+- name: dependsOn
+  type: object
+  default: []
+
+- name: deploymentName
+  type: string
+  default: false
+
+- name: environmentName
+  type: string
+  default: false
+
+- name: condition
+  type: string
+  default: false
+
+- name: apimSubscriptionId
+  type: string
+  default: false
+
+- name: apimRg
+  type: string
+  default: false
+
+- name: apimName
+  type: string
+  default: false
+
+- name: apimApiBackendUrl
+  type: string
+  default: false
+
+- name: apimBackends
+  type: object
+  default: []
+
+- name: apimNamedValues
+  type: object
+  default: []
+
+- name: version
+  type: string
+  default: false
+
+- name: tagsIncludeName
+  type: boolean
+  default: false
+
+- name: artifactType
+  type: string
+  default: false
+
+- name: artifactName
+  type: string
+  default: false
+
+- name: artifactFeed
+  type: string
+  default: false
+
+- name: pathToSpec
+  type: string
+  default: openapi.json
+
+- name: apimApiPath
+  type: string
+  default: false
+
+- name: apimApiName
+  type: string
+  default: false
+
+- name: apimApiPolicy
+  type: string
+  default: false
+
+- name: apimApiSubscriptionKeyEnabled
+  type: string
+  default: false
+
+- name: apimProductName
+  type: string
+  default: false
+
+- name: apimServiceConnection
+  type: string
+  default: false
+
+- name: azureRestDomainName
+  type: string
+  default: false
+
+- name: azureRestVersion
+  type: string
+  default: false
+
+# for getting the backend function app's URL and ID
+- name: funcServiceConnection
+  type: string
+  default: false
+
+jobs:
+- template: /azure/services/applications/common/tasks/deploy/template.yml@cloud-shell
+  parameters:
+    deploymentName: ${{ parameters.deploymentName }}
+    environmentName: ${{ parameters.environmentName }}
+    condition: ${{ parameters.condition }}
+    dependsOn: ${{ parameters.dependsOn }}
+    artifactName: ${{ parameters.artifactName }}
+    artifactType: ${{ parameters.artifactType }}
+    artifactFeed: ${{ parameters.artifactFeed }}
+    tagsIncludeName: ${{ parameters.tagsIncludeName }}
+    version: ${{ parameters.version }}
+    userSteps:
+
+    - task: AzureCLI@2
+      displayName: Create API in APIM
+      inputs:
+        scriptType: bash
+        workingDirectory: $(Pipeline.Workspace)
+        azureSubscription: ${{ parameters.apimServiceConnection }}
+        scriptLocation: inlineScript
+        inlineScript: |
+          source cloud-shell/azure/shell_functions/applications/apim/functions.sh
+          create_apim_api \
+            ${{ parameters.apimRg }} \
+            ${{ parameters.apimName }} \
+            ${{ parameters.apimApiPath }} \
+            ${{ parameters.apimApiName }} \
+            ${{ parameters.apimApiSubscriptionKeyEnabled }}
+
+    - ${{ if ne(parameters.apimProductName, false) }}:
+      - task: AzureCLI@2
+        displayName: Create Product in APIM
+        inputs:
+          scriptType: bash
+          scriptLocation: inlineScript
+          workingDirectory: $(Pipeline.Workspace)
+          azureSubscription: ${{ parameters.apimServiceConnection }}
+          inlineScript: |
+            source cloud-shell/azure/shell_functions/applications/apim/functions.sh
+            create_apim_product \
+              ${{ parameters.apimRg }} \
+              ${{ parameters.apimName }} \
+              ${{ parameters.apimProductName }}
+            add_api_to_apim_product \
+              ${{ parameters.apimRg }} \
+              ${{ parameters.apimName }} \
+              ${{ parameters.apimProductName }} \
+              ${{ parameters.apimApiName }}
+
+    - ${{ if ne(parameters.apimNamedValues, false) }}:
+      - ${{ each nv in parameters.apimNamedValues }}:
+        - task: AzureCLI@2
+          displayName: Put Named Values in APIM
+          inputs:
+            scriptType: bash
+            workingDirectory: $(Pipeline.Workspace)
+            azureSubscription: ${{ parameters.apimServiceConnection }}
+            scriptLocation: inlineScript
+            inlineScript: |
+              source cloud-shell/azure/shell_functions/applications/apim/functions.sh
+              create_apim_nv \
+                ${{ parameters.apimRg }} \
+                ${{ parameters.apimName }} \
+                ${{ nv.name }} \
+                ${{ nv.value }} \
+                ${{ nv.secret }}
+
+    - ${{ each backend in parameters.apimBackends }}:
+      - task: AzureCLI@2
+        displayName: Get Function App Info
+        inputs:
+          scriptType: bash
+          workingDirectory: $(Pipeline.Workspace)
+          azureSubscription: ${{ parameters.funcServiceConnection }}
+          scriptLocation: inlineScript
+          inlineScript: |
+            source cloud-shell/azure/shell_functions/applications/functions/functions.sh
+            export FUNC_URL=$(get_default_func_url ${{ backend.funcAppRg }} ${{ backend.funcAppName }})
+            export FUNC_RESOURCE_ID=$(get_func_resource_id ${{ backend.funcAppRg }} ${{ backend.funcAppName }})
+            echo "##vso[task.setvariable variable=FUNC_URL]$(echo ${FUNC_URL})"
+            echo "##vso[task.setvariable variable=FUNC_RESOURCE_ID]$(echo ${FUNC_RESOURCE_ID})"
+
+      - task: AzureCLI@2
+        displayName: Update APIM Backend
+        inputs:
+          scriptType: bash
+          workingDirectory: $(Pipeline.Workspace)
+          azureSubscription: ${{ parameters.apimServiceConnection }}
+          scriptLocation: inlineScript
+          inlineScript: |
+            source cloud-shell/azure/shell_functions/applications/apim/functions.sh
+            update_apim_backend \
+              ${{ parameters.azureRestDomainName }} \
+              ${{ parameters.azureRestVersion }} \
+              ${{ parameters.apimSubscriptionId }} \
+              ${{ parameters.apimRg }} \
+              ${{ parameters.apimName }} \
+              ${{ backend.id }} \
+              ${{ backend.protocol }} \
+              'https://$(FUNC_URL)/${{ coalesce(backend.apiPath, 'api') }}' \
+              '$(FUNC_RESOURCE_ID)'
+
+    - task: ExtractFiles@1
+      displayName: Extract Artifact
+      inputs:
+        archiveFilePatterns: $(Pipeline.Workspace)/${{ parameters.artifactType }}-$(VERSION).zip
+        destinationFolder: $(Pipeline.Workspace)/artifact
+
+    - bash: |
+        sudo snap install yq
+      displayName: Install yq
+
+    - bash: |
+        echo "##vso[task.setvariable variable=API_VERSION]$(echo $(VERSION) | sed 's:\.:-:g')"
+      displayName: Determine API Revision
+
+    - task: AzureCLI@2
+      displayName: Update API Description
+      inputs:
+        scriptType: bash
+        workingDirectory: $(Pipeline.Workspace)
+        azureSubscription: ${{ parameters.apimServiceConnection }}
+        scriptLocation: inlineScript
+        inlineScript: |
+          source cloud-shell/azure/shell_functions/applications/apim/functions.sh
+          update_apim_api_description \
+            ${{ parameters.apimRg }} \
+            ${{ parameters.apimName }} \
+            ${{ parameters.apimApiName }} \
+            'artifact/${{ parameters.pathToSpec }}'
+
+    - task: AzureCLI@2
+      displayName: Create New API Revision
+      inputs:
+        scriptType: bash
+        workingDirectory: $(Pipeline.Workspace)
+        azureSubscription: ${{ parameters.apimServiceConnection }}
+        scriptLocation: inlineScript
+        inlineScript: |
+          source cloud-shell/azure/shell_functions/applications/apim/functions.sh
+          create_apim_api_revision \
+            ${{ parameters.apimRg }} \
+            ${{ parameters.apimName }} \
+            ${{ parameters.apimApiName }} \
+            '$(API_VERSION)'
+
+    - task: AzureCLI@2
+      displayName: Import API Specification
+      inputs:
+        scriptType: bash
+        workingDirectory: $(Pipeline.Workspace)
+        azureSubscription: ${{ parameters.apimServiceConnection }}
+        scriptLocation: inlineScript
+        inlineScript: |
+          source cloud-shell/azure/shell_functions/applications/apim/functions.sh
+          update_apim_api_spec \
+            ${{ parameters.apimRg }} \
+            ${{ parameters.apimName }} \
+            ${{ parameters.apimApiPath }} \
+            ${{ parameters.apimApiName }} \
+            'artifact/${{ parameters.pathToSpec }}' \
+            '$(API_VERSION)'
+
+    - task: AzureCLI@2
+      displayName: Update APIM Operation Policies
+      inputs:
+        scriptType: bash
+        workingDirectory: $(Pipeline.Workspace)
+        azureSubscription: ${{ parameters.apimServiceConnection }}
+        scriptLocation: inlineScript
+        inlineScript: |
+          source cloud-shell/azure/shell_functions/applications/apim/functions.sh
+          if [[ "${{ parameters.pathToSpec }}" == *".json"* ]]; then
+            export OPERATION_IDS=$(cat artifact/${{ parameters.pathToSpec }} | jq -r '.paths[][].operationId')
+          else
+            export OPERATION_IDS=$(cat artifact/${{ parameters.pathToSpec }} | yq eval -j | jq -r '.paths[][].operationId')
+          fi
+          for policy in $(ls artifact/policies); do
+            POLICY_FILE_WITHOUT_POLICY_XML_EXTENSION=$(basename ${policy} '.policy.xml')
+            echo ${OPERATION_IDS} | grep "${POLICY_FILE_WITHOUT_POLICY_XML_EXTENSION}" && {
+              update_apim_api_policy \
+                ${{ parameters.azureRestDomainName }} \
+                ${{ parameters.azureRestVersion }} \
+                ${{ parameters.apimSubscriptionId }} \
+                ${{ parameters.apimRg }} \
+                ${{ parameters.apimName }} \
+                ${{ parameters.apimApiName }} \
+                "artifact/policies/${policy}" \
+                '$(API_VERSION)' \
+                "${POLICY_FILE_WITHOUT_POLICY_XML_EXTENSION}" || exit 1
+            } || {
+              continue
+            }
+          done   
+
+    - ${{ if ne(parameters.apimApiBackendUrl, false) }}:
+      - task: AzureCLI@2
+        displayName: Update Default APIM API Backend URL
+        inputs:
+          scriptType: bash
+          workingDirectory: $(Pipeline.Workspace)
+          azureSubscription: ${{ parameters.apimServiceConnection }}
+          scriptLocation: inlineScript
+          inlineScript: |
+            source cloud-shell/azure/shell_functions/applications/apim/functions.sh
+            update_apim_api_default_backend \
+              ${{ parameters.apimRg }} \
+              ${{ parameters.apimName }} \
+              ${{ parameters.apimApiName }} \
+              ${{ parameters.apimApiBackendUrl }} \
+              '$(API_VERSION)'
+
+    - ${{ if ne(parameters.apimApiPolicy, false) }}:
+      - task: AzureCLI@2
+        displayName: Update Default APIM API Policy
+        inputs:
+          scriptType: bash
+          workingDirectory: $(Pipeline.Workspace)
+          azureSubscription: ${{ parameters.apimServiceConnection }}
+          scriptLocation: inlineScript
+          inlineScript: |
+            source cloud-shell/azure/shell_functions/applications/apim/functions.sh
+            update_apim_api_policy \
+              ${{ parameters.azureRestDomainName }} \
+              ${{ parameters.azureRestVersion }} \
+              ${{ parameters.apimSubscriptionId }} \
+              ${{ parameters.apimRg }} \
+              ${{ parameters.apimName }} \
+              ${{ parameters.apimApiName }} \
+              'artifact/policies/${{ parameters.apimApiPolicy }}' \
+              '$(API_VERSION)'

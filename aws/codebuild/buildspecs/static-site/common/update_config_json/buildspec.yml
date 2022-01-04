@@ -1,0 +1,14 @@
+version: 0.2
+
+phases:
+  build:
+    commands:
+    - git config --global hub.protocol https
+    - git config --global user.email $GITHUB_USER_EMAIL
+    - git config --global user.name $GITHUB_USERNAME
+    - cd ../
+    - cd ${CODEBUILD_SRC_DIR_CONFIG_JSON}
+    - if [ "${CONFIG_JSON_REPO_COMMIT}" != "latest" ]; then git checkout ${CONFIG_JSON_REPO_COMMIT}; fi
+    - cd ${CODEBUILD_SRC_DIR}
+    - export CONFIG_JSON_FILE="${CODEBUILD_SRC_DIR_CONFIG_JSON}/deploy_properties/${ENVIRONMENT}-config.json"
+    - bash -x ${CLOUD_SHELL_DIR}/aws/codebuild/scripts/update_config_json.sh

@@ -1,0 +1,6 @@
+version: 0.2
+
+phases:
+  build:
+    commands:
+      - bash -x "${CLOUD_SHELL_DIR}"/aws/codebuild/buildspecs/static-site/common/create_artifact/buildspec.sh

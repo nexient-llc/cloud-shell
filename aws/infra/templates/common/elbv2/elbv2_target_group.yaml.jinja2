@@ -1,0 +1,20 @@
+Name: {{inputs.elbv2_target_group.name}}
+Protocol:  {{inputs.elbv2_target_group.protocol}}
+ProtocolVersion: {{inputs.elbv2_target_group.protocol_version}}
+Port:  {{inputs.elbv2_target_group.port}}
+VpcId: {{inputs.elbv2_target_group.vpc_id}}
+HealthCheckProtocol: {{inputs.elbv2_target_group.health_check_protocol}}
+HealthCheckPort:  {{inputs.elbv2_target_group.health_check_port}}
+HealthCheckEnabled:  {{inputs.elbv2_target_group.health_check_enabled}}
+HealthCheckPath:  {{inputs.elbv2_target_group.health_check_path}}
+HealthCheckIntervalSeconds:  {{inputs.elbv2_target_group.health_check_interval_seconds}}
+HealthCheckTimeoutSeconds:  {{inputs.elbv2_target_group.health_check_timeout_seconds}}
+HealthyThresholdCount:  {{inputs.elbv2_target_group.healthy_threshold_count}}
+UnhealthyThresholdCount:  {{inputs.elbv2_target_group.unhealthy_threshold_count}}
+Matcher:
+  HttpCode: '200'
+  GrpcCode: ''
+TargetType: {{ inputs.elbv2_target_group.target_type }}
+Tags:
+- Key: 'ResourceTag'
+  Value: {{ inputs.tags.name }}

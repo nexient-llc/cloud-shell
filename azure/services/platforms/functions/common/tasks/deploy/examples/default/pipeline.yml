@@ -1,0 +1,24 @@
+trigger: none
+pr: none
+
+variables:
+- group: Sandbox-Test
+
+resources:
+  repositories:
+  - repository: cloud-shell
+    type: github
+    name: dteenergy/cloud-shell
+    ref: refs/heads/deg_operations-5361
+    endpoint: dte-common-cloud-service-user
+
+extends:
+  template: /azure/services/platforms/common/tasks/deploy/template.yml@cloud-shell
+  parameters:
+    deploymentName: Sandbox
+    environmentName: Sandbox-Test
+    armTemplate: /azure/services/platforms/functions/common/arm_templates/common/deployment.json
+    armTemplateParams: 
+    - /azure/services/platforms/functions/common/arm_templates/common/examples/default/parameters.json
+    resourceGroup: $(SANDBOX_TEST_RESOURCE_GROUP)
+    serviceConnection: $(SANDBOX_TEST_SERVICE_CONNECTION)

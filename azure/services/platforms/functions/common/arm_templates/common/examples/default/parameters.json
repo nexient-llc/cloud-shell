@@ -1,0 +1,43 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "name": {
+            "value": "dte-e2-test-sandbox-func"
+        },
+        "deploymentSlots": {
+            "value": [
+                "inactive"
+            ]
+        },
+        "location": {
+            "value": "eastus2"
+        },
+        "appInsightsName": {
+            "value": "dte-e2-test-sandbox-func-ai"
+        },
+        "hostingPlanProps": {
+            "value": {
+                "name": "dte-e2-test-sandbox-func-asp"
+            }
+        },
+        "storageAccountName": {
+            "value": "dtee2testsandboxfuncsa"
+        },
+        "technicalActionGroupName": {
+            "value": "dte-e2-test-sandbox-technical-action"
+        },
+        "businessActionGroupName": {
+            "value": "dte-e2-test-sandbox-business-action"
+        },
+        "budgetName": {
+            "value": "dte-e2-test-sandbox-budget"
+        },
+        "budgetAmount": {
+            "value": 100
+        },
+        "keyVaultName": {
+            "value": "false"
+        }
+    }
+}

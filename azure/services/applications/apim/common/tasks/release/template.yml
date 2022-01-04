@@ -1,0 +1,90 @@
+parameters:
+- name: dependsOn
+  type: object
+  default: []
+
+- name: deploymentName
+  type: string
+  default: false
+
+- name: environmentName
+  type: string
+  default: false
+
+- name: condition
+  type: string
+  default: false
+
+- name: apimRg
+  type: string
+  default: false
+
+- name: apimName
+  type: string
+  default: false
+
+- name: apimNamedValues
+  type: object
+  default: []
+
+- name: version
+  type: string
+  default: false
+
+- name: tagsIncludeName
+  type: boolean
+  default: false
+
+- name: artifactType
+  type: string
+  default: false
+
+- name: artifactName
+  type: string
+  default: false
+
+- name: artifactFeed
+  type: string
+  default: false
+
+- name: apimApiName
+  type: string
+  default: false
+
+- name: apimServiceConnection
+  type: string
+  default: false
+
+
+jobs:
+- template: /azure/services/applications/common/tasks/deploy/template.yml@cloud-shell
+  parameters:
+    deploymentName: ${{ parameters.deploymentName }}
+    environmentName: ${{ parameters.environmentName }}
+    condition: ${{ parameters.condition }}
+    dependsOn: ${{ parameters.dependsOn }}
+    artifactName: ${{ parameters.artifactName }}
+    artifactType: ${{ parameters.artifactType }}
+    artifactFeed: ${{ parameters.artifactFeed }}
+    tagsIncludeName: ${{ parameters.tagsIncludeName }}
+    version: ${{ parameters.version }}
+    userSteps:
+
+    - bash: |
+        echo "##vso[task.setvariable variable=API_VERSION]$(echo $(VERSION) | sed 's:\.:-:g')"
+      displayName: Determine API Revision
+
+    - task: AzureCLI@2
+      displayName: Create New API Release
+      inputs:
+        scriptType: bash
+        workingDirectory: $(Pipeline.Workspace)
+        azureSubscription: ${{ parameters.apimServiceConnection }}
+        scriptLocation: inlineScript
+        inlineScript: |
+          source cloud-shell/azure/shell_functions/applications/apim/functions.sh
+          create_apim_api_release \
+            ${{ parameters.apimRg }} \
+            ${{ parameters.apimName }} \
+            ${{ parameters.apimApiName }} \
+            '$(API_VERSION)'

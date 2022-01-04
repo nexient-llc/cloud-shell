@@ -1,0 +1,18 @@
+version: 0.2
+
+phases:
+  build:
+    commands:
+      - bash -x "${CLOUD_SHELL_DIR}"/aws/codebuild/buildspecs/automation-helper/common/ci/buildspec.sh
+
+reports: 
+  test-reports:
+    files:
+      - "${TEST_COVERAGE_PATH}"
+    discard-paths: yes
+    file-format: 'JUNITXML'
+  python-code-coverage-reports:
+    files: 
+      - "${CODE_COVERAGE_PATH}"
+    discard-paths: yes
+    file-format: 'COBERTURAXML'

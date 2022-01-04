@@ -1,0 +1,146 @@
+parameters:
+- name: deploymentName
+  type: string
+  default: false
+
+- name: environmentName
+  type: string
+  default: false
+
+- name: condition
+  type: string
+  default: true
+
+- name: dependsOn
+  type: object
+  default: []
+
+- name: userSteps
+  type: stepList
+  default: []
+
+- name: version
+  type: string
+  default: false
+
+- name: artifactType
+  type: string
+  default: false
+
+- name: artifactName
+  type: string
+  default: false
+
+- name: artifactFeed
+  type: string
+  default: false
+
+- name: resourceGroup
+  type: string
+  default: false
+
+- name: serviceConnection
+  type: string
+  default: false
+
+- name: containerName
+  type: string
+  default: false
+
+- name: storageAccountName
+  type: string
+  default: false
+
+- name: tagsIncludeName
+  type: string
+  default: false
+
+- name: cdnConfig
+  type: object
+  default: []
+
+jobs:
+- template: /azure/services/applications/common/tasks/deploy/template.yml@cloud-shell
+  
+  parameters:
+    deploymentName: ${{ parameters.deploymentName }}
+    environmentName: ${{ parameters.environmentName }}
+    condition: ${{ parameters.condition }}
+    dependsOn: ${{ parameters.dependsOn }}
+    artifactName: ${{ parameters.artifactName }}
+    artifactType: ${{ parameters.artifactType }}
+    artifactFeed: ${{ parameters.artifactFeed }}
+    version: ${{ parameters.version }}
+    tagsIncludeName: ${{ parameters.tagsIncludeName }}
+    userSteps:
+
+    # Work with files in azure storage account
+    # Delete files from Azure Blob Storage
+    - task: AzureCLI@2
+      displayName: Delete static website files from azure storage account
+      inputs:
+        scriptType: bash
+        workingDirectory: $(Pipeline.Workspace)
+        azureSubscription: ${{  parameters.serviceConnection }}
+        scriptLocation: inlineScript
+        inlineScript: |
+          source cloud-shell/azure/shell_functions/applications/storageAccount/functions.sh
+          delete_files_from_blob_container \
+            ${{ parameters.storageAccountName }} \
+            ${{ parameters.containerName }}
+
+    #extract artifact zip. copy the extracted folder to the container using task below.
+    - task: ExtractFiles@1
+      inputs:
+          archiveFilePatterns: $(Pipeline.Workspace)/${{ parameters.artifactType }}-$(VERSION).zip
+          cleanDestinationFolder: true
+          overwriteExistingFiles: true
+          destinationFolder : $(Pipeline.Workspace)/artifact
+
+    # Copy files to Azure Blob Storage
+    - task: AzureCLI@2
+      displayName: Copy static website files to azure storage account
+      inputs:
+        scriptType: bash
+        workingDirectory: $(Pipeline.Workspace)
+        azureSubscription: ${{  parameters.serviceConnection }}
+        scriptLocation: inlineScript
+        inlineScript: |
+          source cloud-shell/azure/shell_functions/applications/storageAccount/functions.sh
+          copy_files_to_blob_container \
+            ${{ parameters.containerName }} \
+            ${{ parameters.storageAccountName }} \
+            $(Pipeline.Workspace)/artifact
+            
+            
+    # Enable storage account static site feature
+    - task: AzureCLI@2
+      displayName: Enable storage account static site feature
+      inputs:
+        scriptType: bash
+        workingDirectory: $(Pipeline.Workspace)
+        azureSubscription: ${{  parameters.serviceConnection }}
+        scriptLocation: inlineScript
+        inlineScript: |
+          source cloud-shell/azure/shell_functions/applications/storageAccount/functions.sh
+          enable_storageaccount_staticsite_feature \
+            ${{ parameters.storageAccountName }} 
+
+    #purge cdn
+    - task: AzureCLI@2
+      displayName: Refresh files in CDN
+      inputs:
+        scriptType: bash
+        workingDirectory: $(Pipeline.Workspace)
+        azureSubscription: ${{  parameters.serviceConnection }}
+        scriptLocation: inlineScript
+        inlineScript: |
+          source cloud-shell/azure/shell_functions/applications/cdn/functions.sh
+          refresh_cached_cdn_files \
+            ${{ parameters.resourceGroup }} \
+            ${{ parameters.cdnConfig.cdnEndpointName }} \
+            ${{ parameters.cdnConfig.cdnProfileName }} 
+
+    # Allow this template to be extended
+    - ${{ each step in parameters.userSteps }}:
+      - ${{ step }}

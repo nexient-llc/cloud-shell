@@ -1,0 +1,31 @@
+parameters:
+  - name: sourceDirectory
+    type: string
+    default: false
+
+  - name: tagsIncludeName
+    type: string
+    default: false
+
+  - name: serviceName
+    type: string
+    default: false
+
+steps:
+  # Based on an existing tag, determine what version of the artifact to grab
+  - task: Bash@3
+    displayName: Determine Artifact Version
+    inputs:
+      workingDirectory: ${{ parameters.sourceDirectory }}
+      targetType: inline
+      script: |
+        # If `parameters.tagsIncludeName` is false, then the tag is only a version
+        [ "${{ lower(parameters.tagsIncludeName) }}" != "true" ] && \
+          VERSION="$(git tag --points-at HEAD | tail -1 | sed 's:.*/::')"
+
+        # If `parameters.tagsIncludeName` is true, then tag includes application name and version
+        [ "${{ lower(parameters.tagsIncludeName) }}" == "true" ] && \
+          VERSION="$(git tag --points-at HEAD | grep ${{ parameters.serviceName }} | tail -1 | sed 's:.*/::')"
+
+        echo "##vso[task.setvariable variable=VERSION]$(echo ${VERSION})"
+        echo "${VERSION}"

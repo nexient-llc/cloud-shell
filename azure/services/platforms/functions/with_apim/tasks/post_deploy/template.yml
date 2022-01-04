@@ -1,0 +1,128 @@
+parameters:
+- name: dependsOn
+  type: object
+  default: []
+
+- name: deploymentName
+  type: string
+  default: false
+
+- name: environmentName
+  type: string
+  default: false
+
+- name: condition
+  type: string
+  default: false
+
+- name: funcAppRg
+  type: string
+  default: false
+
+- name: funcAppName
+  type: string
+  default: false
+
+- name: funcAppPath
+  type: string
+  default: 'api'
+
+- name: funcKeyNamedValue
+  type: string
+  default: false
+
+- name: apimRg
+  type: string
+  default: false
+
+- name: apimName
+  type: string
+  default: false
+
+- name: apimApiName
+  type: string
+  default: false
+
+- name: apimServiceConnection
+  type: string
+  default: false
+
+- name: funcServiceConnection
+  type: string
+  default: false
+
+jobs:
+- template: /azure/services/common/tasks/deploy/template.yml@cloud-shell
+  parameters:
+    deploymentName: ${{ parameters.deploymentName }}
+    environmentName: ${{ parameters.environmentName }}
+    condition: ${{ parameters.condition }}
+    dependsOn: ${{ parameters.dependsOn }}
+    userSteps:
+
+    - checkout: cloud-shell
+      path: cloud-shell
+
+    - ${{ if ne(parameters.funcKeyNamedValue, false)}}:
+      - task: AzureCLI@2
+        displayName: Get Function Key
+        inputs:
+          scriptType: bash
+          azureSubscription: ${{ parameters.funcServiceConnection }}
+          scriptLocation: inlineScript
+          workingDirectory: $(Pipeline.Workspace)
+          inlineScript: |
+            source cloud-shell/azure/shell_functions/applications/functions/functions.sh
+            export FUNC_KEY=$( \
+              get_default_func_key \
+                ${{ parameters.funcAppRg }} \
+                ${{ parameters.funcAppName }} \
+            )
+            echo "##vso[task.setvariable variable=FUNC_KEY]${FUNC_KEY}"
+
+      - task: AzureCLI@2
+        displayName: Put Function Key in APIM
+        inputs:
+          scriptType: bash
+          azureSubscription: ${{ parameters.apimServiceConnection }}
+          scriptLocation: inlineScript
+          workingDirectory: $(Pipeline.Workspace)
+          inlineScript: |
+            source cloud-shell/azure/shell_functions/applications/apim/functions.sh
+            create_apim_nv \
+              ${{ parameters.apimRg }} \
+              ${{ parameters.apimName }} \
+              ${{ parameters.funcKeyNamedValue }} \
+              '$(FUNC_KEY)' \
+              'true'
+
+    - task: AzureCLI@2
+      displayName: Get Function URL
+      inputs:
+        scriptType: bash
+        azureSubscription: ${{ parameters.funcServiceConnection }}
+        scriptLocation: inlineScript
+        workingDirectory: $(Pipeline.Workspace)
+        inlineScript: |
+          source cloud-shell/azure/shell_functions/applications/functions/functions.sh
+          export FUNC_URL=$( \
+            get_default_func_url \
+              ${{ parameters.funcAppRg }} \
+              ${{ parameters.funcAppName }} \
+          )
+          echo "##vso[task.setvariable variable=FUNC_URL]${FUNC_URL}"
+
+    - task: AzureCLI@2
+      displayName: Put Function URL in APIM
+      inputs:
+        scriptType: bash
+        azureSubscription: ${{ parameters.apimServiceConnection }}
+        scriptLocation: inlineScript
+        workingDirectory: $(Pipeline.Workspace)
+        inlineScript: |
+          source cloud-shell/azure/shell_functions/applications/apim/functions.sh
+          update_apim_api_backend \
+            ${{ parameters.apimRg }} \
+            ${{ parameters.apimName }} \
+            ${{ parameters.apimApiName }} \
+            https://$(FUNC_URL)/${{ parameters.funcAppPath }}

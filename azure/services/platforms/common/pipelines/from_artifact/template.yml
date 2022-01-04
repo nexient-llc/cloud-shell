@@ -1,0 +1,33 @@
+parameters:
+- name: environments
+  type: object
+  default: []
+
+- name: common
+  type: object
+  default: []
+
+stages:
+- ${{ each env in parameters.environments }}:
+  - stage: ${{ env.shortName }}_cd
+    jobs:
+    - ${{ each deployment in env.deployments }}:
+      - template: /azure/services/platforms/common/tasks/deploy_from_artifact/template.yml@cloud-shell
+        parameters:
+          deploymentName: ${{ deployment.name }}
+          environmentName: ${{ env.fullName }}  
+          dependsOn: ${{ deployment.dependsOn }}
+          condition: ${{ coalesce(deployment.condition, env.common.condition, parameters.common.condition) }}
+          resourceGroup: ${{ coalesce(deployment.resourceGroup, env.common.resourceGroup, parameters.common.resourceGroup) }} 
+          serviceConnection: ${{ coalesce(deployment.serviceConnection, env.common.serviceConnection, parameters.common.serviceConnection) }}     
+          armTemplate: ${{ coalesce(deployment.armTemplate, env.common.armTemplate, parameters.common.armTemplate) }}
+          artifactFeed: ${{ coalesce(deployment.artifactFeed, env.common.artifactFeed, parameters.common.artifactFeed) }}
+          artifactName: ${{ coalesce(deployment.artifactName, env.common.artifactName, parameters.common.artifactName) }}
+          version: ${{ coalesce(deployment.version, env.common.version, parameters.common.version, false) }}
+          armTemplateParams:
+          - ${{ each paramFile in parameters.common.armTemplateParams }}:
+            - ${{ paramFile }}
+          - ${{ each paramFile in env.common.armTemplateParams }}:
+            - ${{ paramFile }}
+          - ${{ each paramFile in deployment.armTemplateParams }}:
+            - ${{ paramFile }}

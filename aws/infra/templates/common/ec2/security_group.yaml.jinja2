@@ -1,0 +1,10 @@
+Description: 'ECS Fargate Cluster for SWO'
+GroupName: {{ inputs.security_group.group_name }}
+VpcId: {{ inputs.security_group.vpc_id }}
+TagSpecifications:
+  - ResourceType: security-group
+    Tags:
+    - Key: 'Name'
+      Value: {{ inputs.security_group.group_name }}
+    - Key: 'ResourceTag'
+      Value: {{ inputs.tags.name }}

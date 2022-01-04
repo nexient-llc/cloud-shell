@@ -1,0 +1,67 @@
+parameters:
+  - name: env
+    type: object
+    default: []
+
+  - name: common
+    type: object
+    default: []
+
+  - name: deployStages
+    type: stageList
+    default: []
+
+stages:
+  - ${{ if eq(parameters.env.createArtifact, true) }}:
+      - stage: ${{ parameters.env.shortName }}_rc
+        jobs:
+          - ${{ each deployment in parameters.env.deployments }}:
+              - template: ../../tasks/create_artifact/${{ coalesce(deployment.runtime, parameters.env.common.runtime, parameters.common.runtime, false) }}/template.yml@cloud-shell
+                parameters:
+                  artifactType: ${{ coalesce(deployment.artifactType, parameters.env.common.artifactType, parameters.common.artifactType) }}
+                  condition: ${{ coalesce(deployment.condition, parameters.env.common.condition, parameters.common.condition, true) }}
+                  sourceDirectory: ${{ coalesce(deployment.sourceDirectory, parameters.env.common.sourceDirectory, parameters.common.sourceDirectory) }}
+                  serviceName: ${{ deployment.name }}
+                  jobName: ReleaseCandidate_${{ deployment.name }}
+                  displayName: ${{ deployment.name }} Release Candidate
+                  tagsIncludeName: ${{ coalesce(deployment.tagsIncludeName, parameters.env.common.tagsIncludeName, parameters.common.tagsIncludeName) }}
+                  acrRepository: ${{ coalesce(deployment.acrRepository, parameters.env.common.acrRepository, parameters.common.acrRepository) }}
+                  containerRegistryUrl: ${{ coalesce(deployment.containerRegistryUrl, parameters.env.common.containerRegistryUrl, parameters.common.containerRegistryUrl) }}
+                  buildArguments: ${{ coalesce(deployment.buildArguments, parameters.env.common.buildArguments, parameters.common.buildArguments) }}
+                  testEnvFile: ${{ coalesce(deployment.testEnvFile, parameters.env.common.testEnvFile, parameters.common.testEnvFile) }}
+                  testCommands:
+                    - ${{ each command in parameters.common.testCommands }}:
+                        - ${{ command }}
+                    - ${{ each command in parameters.env.common.testCommands }}:
+                        - ${{ command }}
+                    - ${{ each command in deployment.testCommands }}:
+                        - ${{ command }}
+                  registryServiceConnection: ${{ coalesce(deployment.registryServiceConnection, parameters.env.common.registryServiceConnection, parameters.common.registryServiceConnection) }}
+                  registryArmServiceConnection: ${{ coalesce(deployment.registryArmServiceConnection, parameters.env.common.registryArmServiceConnection, parameters.common.registryArmServiceConnection) }}
+                  acrSubscriptionId: ${{ coalesce(deployment.acrSubscriptionId, parameters.env.common.acrSubscriptionId, parameters.common.acrSubscriptionId) }}
+                  acrResourceGroup: ${{ coalesce(deployment.acrResourceGroup, parameters.env.common.acrResourceGroup, parameters.common.acrResourceGroup) }}
+
+  - ${{ each stage in parameters.deployStages }}:
+      - ${{ stage }}
+
+  - ${{ if eq(parameters.env.createArtifact, true) }}:
+      - stage: ${{ parameters.env.shortName }}_or
+        jobs:
+          - ${{ each deployment in parameters.env.deployments }}:
+              - template: ../../tasks/create_artifact/${{ coalesce(deployment.runtime, parameters.env.common.runtime, parameters.common.runtime, false) }}/template.yml@cloud-shell
+                parameters:
+                  createFromExisting: "rc"
+                  artifactType: "or"
+                  condition: ${{ coalesce(deployment.condition, parameters.env.common.condition, parameters.common.condition, true) }}
+                  sourceDirectory: ${{ coalesce(deployment.sourceDirectory, parameters.env.common.sourceDirectory, parameters.common.sourceDirectory) }}
+                  serviceName: ${{ deployment.name }}
+                  jobName: OfficialRelease_${{ deployment.name }}
+                  displayName: ${{ deployment.name }} Official Release
+                  tagsIncludeName: ${{ coalesce(deployment.tagsIncludeName, parameters.env.common.tagsIncludeName, parameters.common.tagsIncludeName) }}
+                  acrRepository: ${{ coalesce(deployment.acrRepository, parameters.env.common.acrRepository, parameters.common.acrRepository) }}
+                  registryServiceConnection: ${{ coalesce(deployment.registryServiceConnection, parameters.env.common.registryServiceConnection, parameters.common.registryServiceConnection) }}
+                  containerRegistryUrl: ${{ coalesce(deployment.containerRegistryUrl, parameters.env.common.containerRegistryUrl, parameters.common.containerRegistryUrl) }}
+                  registryArmServiceConnection: ${{ coalesce(deployment.registryArmServiceConnection, parameters.env.common.registryArmServiceConnection, parameters.common.registryArmServiceConnection) }}
+                  acrSubscriptionId: ${{ coalesce(deployment.acrSubscriptionId, parameters.env.common.acrSubscriptionId, parameters.common.acrSubscriptionId) }}
+                  acrResourceGroup: ${{ coalesce(deployment.acrResourceGroup, parameters.env.common.acrResourceGroup, parameters.common.acrResourceGroup) }}
+

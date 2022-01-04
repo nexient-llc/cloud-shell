@@ -1,0 +1,63 @@
+parameters:
+  - name: deploymentName
+    type: string
+    default: false
+
+  - name: environmentName
+    type: string
+    default: false
+
+  - name: condition
+    type: string
+    default: true
+
+  - name: dependsOn
+    type: object
+    default: []
+
+  - name: userSteps
+    type: stepList
+    default: []
+
+  - name: serviceConnection
+    type: string
+    default: false
+
+  - name: resourceGroup
+    type: string
+    default: false
+
+  - name: slotToSetActive
+    type: string
+    default: false
+
+  - name: webAppName
+    type: string
+    default: false
+
+jobs:
+  - deployment: ${{ parameters.deploymentName }}
+    pool:
+      vmImage: ubuntu-18.04
+    displayName: Activate ${{ parameters.deploymentName }}
+    environment: ${{ parameters.environmentName }}
+    condition: ${{ parameters.condition }}
+    dependsOn: ${{ parameters.dependsOn }}
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+            # Swap the specified slot with the production slot
+            - task: AzureAppServiceManage@0
+              displayName: Set Slot Active
+              inputs:
+                azureSubscription: ${{ parameters.serviceConnection }}
+                action: "Swap Slots"
+                webAppName: ${{ parameters.webAppName }}
+                sourceSlot: ${{ parameters.slotToSetActive }}
+                resourceGroupName: ${{ parameters.resourceGroup }}
+                swapWithProduction: true
+
+            # Allow this template to be extended
+            - ${{ each step in parameters.userSteps }}:
+                - ${{ step }}

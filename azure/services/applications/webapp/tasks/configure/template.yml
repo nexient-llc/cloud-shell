@@ -1,0 +1,80 @@
+parameters:
+- name: deploymentName
+  type: string
+  default: false
+
+- name: environmentName
+  type: string
+  default: false
+
+- name: condition
+  type: string
+  default: true
+
+- name: dependsOn
+  type: object
+  default: []
+
+- name: resourceGroup
+  type: string
+  default: false
+
+- name: serviceConnection
+  type: string
+  default: false
+
+- name: deploymentSlot
+  type: string
+  default: production
+
+- name: webAppName
+  type: string
+  default: false
+
+- name: webAppSettings
+  type: object
+  default: []
+
+- name: userSteps
+  type: stepList
+  default: []
+
+
+jobs:
+- template: /azure/services/common/tasks/deploy/template.yml@cloud-shell
+  parameters:
+    deploymentName: ${{ parameters.deploymentName }}
+    environmentName: ${{ parameters.environmentName }}
+    condition: ${{ parameters.condition }}
+    dependsOn: ${{ parameters.dependsOn }}
+    userSteps:
+
+    - checkout: self
+      path: application
+
+    - checkout: cloud-shell
+      path: cloud-shell
+
+    - template: /azure/services/applications/common/tasks/deploy/env-var-read-steps.yml
+      parameters:
+        appSettings: ${{ parameters.webAppSettings }}
+
+    # Apply the environment variables to the web app
+    - task: AzureCLI@2
+      displayName: Apply Web App Settings
+      inputs:
+        scriptType: bash
+        scriptLocation: inlineScript
+        workingDirectory: $(Pipeline.Workspace)
+        azureSubscription: ${{ parameters.serviceConnection }}
+        inlineScript: |
+          source cloud-shell/azure/shell_functions/applications/webapp/functions.sh
+          set_webapp_runtime_environment_vars \
+            ${{ parameters.resourceGroup }} \
+            ${{ parameters.deploymentSlot }} \
+            ${{ parameters.webAppName }} \
+            '$(ENVIRONMENT_OBJECT)'
+
+    # Allow this template to be extended
+    - ${{ each step in parameters.userSteps }}:
+      - ${{ step }}

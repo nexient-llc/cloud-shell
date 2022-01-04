@@ -1,0 +1,37 @@
+parameters:
+- name: deploymentName
+  type: string
+  default: false
+
+- name: environmentName
+  type: string
+  default: false
+
+- name: condition
+  type: string
+  default: true
+
+- name: dependsOn
+  type: object
+  default: []
+
+- name: userSteps
+  type: stepList
+  default: []
+  
+jobs:
+- deployment: ${{ parameters.deploymentName }}
+  pool: 
+    vmImage: ubuntu-18.04
+  displayName: Deploy ${{ parameters.deploymentName }}
+  environment: ${{ parameters.environmentName }}
+  condition: ${{ parameters.condition }}
+  dependsOn: ${{ parameters.dependsOn }}
+  strategy:
+    runOnce:
+      deploy:
+        steps:
+
+        # Allow this template to be extended
+        - ${{ each step in parameters.userSteps }}:
+          - ${{ step }}

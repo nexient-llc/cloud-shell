@@ -1,0 +1,13 @@
+CidrBlock: {{ inputs.vpc.cidr_block }}
+AmazonProvidedIpv6CidrBlock: false
+DryRun: false
+InstanceTenancy: default
+TagSpecifications: 
+- ResourceType: vpc
+  Tags: 
+  - Key: 'Name'
+    Value: {{ inputs.vpc.name }}
+  - Key: 'Environment'
+    Value: {{ inputs.vpc.env }}
+  - Key: 'ResourceTag'
+    Value: {{ inputs.tags.name }}

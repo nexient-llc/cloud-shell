@@ -1,0 +1,91 @@
+parameters:
+- name: sourceDirectory
+  type: string
+  default: false
+
+- name: condition
+  type: string
+  default: true
+
+- name: funcDirectory
+  type: string
+  default: false
+
+- name: artifactFeed
+  type: string
+  default: false  
+
+- name: artifactName
+  type: string
+  default: false
+
+- name: jobName
+  type: string
+  default: false
+
+- name: displayName
+  type: string
+  default: false
+
+- name: artifactType
+  type: string
+  default: false
+
+- name: serviceName
+  type: string
+  default: false
+
+- name: createFromExisting
+  type: string
+  default: false
+
+- name: tagsIncludeName
+  type: boolean
+  default: false
+
+- name: outputDirectory
+  type: string
+  default: dist
+
+- name: runtimeVersion
+  type: string
+  default: false
+
+jobs:        
+- template: ../common/template.yml@cloud-shell
+  parameters:
+    jobName: ${{ parameters.jobName }}
+    condition: ${{ parameters.condition }}
+    displayName: ${{ parameters.displayName }}
+    artifactType: ${{ parameters.artifactType }}
+    artifactFeed: ${{ parameters.artifactFeed }}
+    artifactName: ${{ parameters.artifactName }}
+    serviceName: ${{ parameters.serviceName }}
+    createFromExisting: ${{ parameters.createFromExisting }}
+    tagsIncludeName: ${{ parameters.tagsIncludeName }}
+    sourceDirectory: ${{ parameters.sourceDirectory }}
+    version: $(VERSION)
+    buildsteps:
+    - ${{ if ne(parameters.runtimeVersion, false) }}:
+      - task: NodeTool@0
+        inputs:
+          versionSpec: ${{ parameters.runtimeVersion }} 
+
+    - bash: |
+        echo "npm install"
+        npm install || exit 1
+      workingDirectory: ${{ parameters.sourceDirectory }}
+      displayName: Install Dependencies
+
+    - bash: |
+        echo "npm run build" && npm run build || exit 1
+      workingDirectory: ${{ parameters.sourceDirectory }}
+      displayName: Build Specification
+
+    - task: ArchiveFiles@2
+      inputs:
+        archiveType: 'zip'
+        includeRootFolder: false
+        replaceExistingArchive: false
+        rootFolderOrFile: '${{ parameters.sourceDirectory }}/${{ parameters.outputDirectory }}'
+        archiveFile: '$(Build.ArtifactStagingDirectory)/${{ parameters.artifactType }}-$(VERSION).zip'

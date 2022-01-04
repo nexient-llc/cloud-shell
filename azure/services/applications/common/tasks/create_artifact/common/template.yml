@@ -1,0 +1,136 @@
+parameters:
+- name: artifactFeed
+  type: string
+  default: false  
+
+- name: condition
+  type: string
+  default: true
+
+- name: sourceDirectory
+  type: string
+  default: false
+
+- name: artifactType
+  type: string
+  default: false
+
+- name: createFromExisting
+  type: string
+  default: false
+
+- name: tagsIncludeName
+  type: string
+  default: false
+
+- name: serviceName
+  type: string
+  default: false
+
+- name: artifactName
+  type: string
+  default: false
+
+- name: jobName
+  type: string
+  default: false
+
+- name: displayName
+  type: string
+  default: false
+
+- name: version
+  type: string
+  default: false
+
+- name: buildSteps
+  type: stepList
+  default: []
+
+jobs: 
+- job: ${{ parameters.jobName }}
+  pool: 
+    vmImage: ubuntu-18.04
+  condition: ${{ parameters.condition }}
+  displayName: ${{ parameters.displayName }}
+  steps:
+  # Clone the applciation into $(Pipeline.Workspace)
+  - checkout: self
+    persistCredentials: true
+
+  # If `parameters.createFromExisting` is not set,
+  - ${{ if eq(parameters.createFromExisting, false) }}:
+    # Tag the application with a date-based version...
+    - task: Bash@3
+      displayName: Tag
+      inputs:
+        workingDirectory: ${{ parameters.sourceDirectory }}
+        targetType: inline
+        script: |
+          VERSION=$(date +%-Y.%-m.%-d-%-s)
+          echo "##vso[task.setvariable variable=VERSION]$(echo ${VERSION})"
+          echo "Version: ${VERSION}"
+
+          # If `parameters.tagsIncludeName` is true, then include application name
+          [ "${{ lower(parameters.tagsIncludeName) }}" == "true" ] && \
+            git tag "${{ parameters.serviceName }}/${VERSION}"
+
+          # If `parameters.tagsIncludeName` is not true, then tag with only the version
+          [ "${{ lower(parameters.tagsIncludeName) }}" != "true" ] && \
+            git tag "${VERSION}"
+        
+          git push --tags && git fetch --tags origin
+
+    # ... and build a new artifact
+    - ${{ each step in parameters.buildSteps }}: 
+      - ${{ step }}
+
+  # If `parameters.createFromExisting` is set, promote an existing artifact to a new type 
+  - ${{ if ne(parameters.createFromExisting, false) }}:
+    # Based on an existing tag, determine what version of the artifact to grab 
+    - task: Bash@3
+      displayName: Determine Artifact Version
+      inputs:
+        workingDirectory: ${{ parameters.sourceDirectory }}
+        targetType: inline
+        script: |
+          # If `parameters.tagsIncludeName` is false, then the tag is only a version
+          [ "${{ lower(parameters.tagsIncludeName) }}" != "true" ] && \
+            VERSION="$(git tag --points-at HEAD | tail -1 | sed 's:.*/::')"
+
+          # If `parameters.tagsIncludeName` is true, then tag includes application name and version
+          [ "${{ lower(parameters.tagsIncludeName) }}" == "true" ] && \
+            VERSION="$(git tag --points-at HEAD | grep ${{ parameters.serviceName }} | tail -1 | sed 's:.*/::')"
+
+          echo "##vso[task.setvariable variable=VERSION]$(echo ${VERSION})"
+          echo "${VERSION}"
+
+    # Download the artifact to be re-tagged to the artifact staging directory
+    - task: UniversalPackages@0
+      displayName: Download Artifact
+      inputs:
+        command: download
+        downloadDirectory: '$(Build.ArtifactStagingDirectory)'
+        vstsFeed: '${{ parameters.artifactFeed }}'
+        vstsFeedPackage: '${{ parameters.artifactName }}-${{ parameters.createFromExisting }}'
+        vstsPackageVersion: $(VERSION)
+  
+  # Regardless of `parameters.createFromExisting`, rename the staged archive with the artifact type
+  - bash: | 
+      [ -f "${{ parameters.artifactType }}-$(VERSION).zip" ] || {
+        mv *.zip ${{ parameters.artifactType }}-$(VERSION).zip
+      }
+    workingDirectory: $(Build.ArtifactStagingDirectory)
+    displayName: Rename Archive File
+  
+  # Publish target artifact version to repo
+  - task: UniversalPackages@0
+    displayName: Upload Artifact to Repo
+    inputs:
+      command: publish
+      publishDirectory: '$(Build.ArtifactStagingDirectory)'
+      vstsFeedPublish: '${{ parameters.artifactFeed }}'
+      vstsFeedPackagePublish: '${{ parameters.artifactName }}-${{ parameters.artifactType }}'
+      packagePublishDescription: '${{ parameters.jobName }}: ${{ parameters.version }}'
+      versionOption: custom
+      versionPublish: '${{ parameters.version }}'

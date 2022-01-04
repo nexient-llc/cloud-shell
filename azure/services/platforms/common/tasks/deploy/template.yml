@@ -1,0 +1,95 @@
+parameters:
+- name: deploymentName
+  type: string
+  default: false
+
+- name: environmentName
+  type: string
+  default: false
+
+- name: condition
+  type: string
+  default: true
+
+- name: dependsOn
+  type: object
+  default: []
+
+- name: resourceGroup
+  type: string
+  default: false
+
+- name: armTemplate
+  type: string
+  default: false
+
+- name: armTemplateParams
+  type: object
+  default: []
+
+- name: serviceConnection
+  type: string
+  default: false
+
+- name: userSteps
+  type: stepList
+  default: []
+
+jobs:
+- template: /azure/services/common/tasks/deploy/template.yml@cloud-shell
+  parameters:
+    deploymentName: ${{ parameters.deploymentName }}
+    environmentName: ${{ parameters.environmentName }}
+    condition: ${{ parameters.condition }}
+    dependsOn: ${{ parameters.dependsOn }}
+    userSteps:
+
+    # Clone cloud-shell to $(Pipeline.Workspace)/cloud-shell
+    - checkout: cloud-shell
+      path: cloud-shell
+
+    # Clone consumer to $(Pipeline.Workspace)/application
+    - checkout: self
+      path: application
+
+    # Initialize an empty JSON object
+    - task: Bash@3
+      displayName: Initialize Parameter Object
+      inputs:
+        targetType: inline
+        script: |
+          echo "##vso[task.setvariable variable=TEMPLATE_PARAMS]{}"
+
+    # Deep merge (priority ordered) paramFiles into a single object
+    - ${{ each paramFile in parameters.armTemplateParams }}:
+      - task: Bash@3
+        displayName: Read ARM Template Parameters
+        env:
+          TEMPLATE_PARAMS: $(TEMPLATE_PARAMS)
+        inputs:
+          workingDirectory: $(Pipeline.Workspace)
+          targetType: inline
+          script: |
+            export TEMPLATE_PARAMS=$(jq -s '.[1] * .[0]' application/${{ paramFile }} <(echo ${TEMPLATE_PARAMS}))
+            echo "##vso[task.setvariable variable=TEMPLATE_PARAMS]$(echo ${TEMPLATE_PARAMS})"
+            echo ${TEMPLATE_PARAMS} | jq -r .
+
+    # Apply the template to the resource group using the parameters object
+    - task: AzureCLI@2
+      displayName: Apply ARM Template
+      inputs:
+        scriptType: bash
+        scriptLocation: inlineScript
+        workingDirectory: $(Pipeline.Workspace)
+        azureSubscription: ${{ parameters.serviceConnection }}
+        inlineScript: |
+          source cloud-shell/azure/shell_functions/platforms/common/functions.sh
+          deploy_arm_template \
+            ${{ parameters.resourceGroup }} \
+            ${{ parameters.deploymentName }} \
+            cloud-shell/${{ parameters.armTemplate }} \
+            '$(TEMPLATE_PARAMS)'
+
+    # Allow this template to be extended
+    - ${{ each step in parameters.userSteps }}:
+      - ${{ step }}

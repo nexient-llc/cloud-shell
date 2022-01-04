@@ -1,0 +1,136 @@
+parameters:
+  - name: deploymentName
+    type: string
+    default: false
+
+  - name: environmentName
+    type: string
+    default: false
+
+  - name: dependsOn
+    type: object
+    default: []
+
+  - name: condition
+    type: string
+    default: true
+
+  - name: resourceGroup
+    type: string
+    default: false
+
+  - name: serviceConnection
+    type: string
+    default: false
+  
+  - name: version
+    type: string
+    default: false
+
+  - name: tagsIncludeName
+    type: string
+    default: false
+
+  - name: artifactType
+    type: string
+    default: false
+
+  - name: deploymentSlot
+    type: string
+    default: production
+
+  - name: containerRegistryUrl
+    type: string
+    default: false
+
+  - name: acrRepository
+    type: string
+    default: false
+
+  - name: webAppName
+    type: string
+    default: false
+
+  - name: webAppSettings
+    type: object
+    default: []
+
+  - name: userSteps
+    type: stepList
+    default: []
+
+jobs:
+  - template: /azure/services/common/tasks/deploy/template.yml@cloud-shell
+    parameters:
+      deploymentName: ${{ parameters.deploymentName }}
+      environmentName: ${{ parameters.environmentName }}
+      condition: ${{ parameters.condition }}
+      dependsOn: ${{ parameters.dependsOn }}
+      userSteps:
+        # Clone the applciation into $(Pipeline.Workspace)/application
+        - checkout: self
+          path: application
+
+        # Clone the cloud-shell into $(Pipeline.Workspace)/cloud-shell
+        - checkout: cloud-shell
+          path: cloud-shell
+
+        # Automated runs on a commit will pass the `version` parameter in as `false`
+        # When version == false, determine the version from the git tag (created in a previous job)
+        - task: Bash@3
+          displayName: Determine Version
+          inputs:
+            workingDirectory: $(Pipeline.Workspace)/application
+            targetType: inline
+            script: |
+              echo "VERSION = ${{ parameters.version }}, TAGS_INCLUDE_NAME = ${{ parameters.tagsIncludeName }}"
+              [[ "${{ lower(parameters.version) }}" == "false" ]] && [[ "${{ lower(parameters.tagsIncludeName) }}" != "true" ]] && {
+                echo "MODE: GET VERSION FROM TAG, TAGS DO NOT INCLUDE NAME"
+                VERSION="$(git tag --points-at HEAD | tail -1 | sed 's:.*/::')"
+              }
+              [[ "${{ lower(parameters.version) }}" == "false" ]] && [[ "${{ lower(parameters.tagsIncludeName) }}" == "true" ]] && {
+                echo "MODE: GET VERSION FROM TAG, TAGS INCLUDE NAME"
+                VERSION="$(git tag --points-at HEAD | grep ${{ parameters.deploymentName }} | tail -1 | sed 's:.*/::')"
+              }
+              [[ "${{ parameters.version }}" != "false" ]] && {
+                echo "MODE: VERSION MANUALLY PROVIDED"
+                VERSION="${{ parameters.version }}"
+              }
+              echo "##vso[task.setvariable variable=VERSION]$(echo ${VERSION})"
+              echo "${VERSION}"
+
+
+        - template: /azure/services/applications/common/tasks/deploy/env-var-read-steps.yml
+          parameters:
+            appSettings: ${{ parameters.webAppSettings }}
+        
+        # Apply the environment variables to the web app
+        - task: AzureCLI@2
+          displayName: Apply Web App Settings
+          inputs:
+            scriptType: bash
+            scriptLocation: inlineScript
+            workingDirectory: $(Pipeline.Workspace)
+            azureSubscription: ${{ parameters.serviceConnection }}
+            inlineScript: |
+              source cloud-shell/azure/shell_functions/applications/webapp/functions.sh
+              set_webapp_runtime_environment_vars \
+                ${{ parameters.resourceGroup }} \
+                ${{ parameters.deploymentSlot }} \
+                ${{ parameters.webAppName }} \
+                '$(ENVIRONMENT_OBJECT)'
+        
+        - task: AzureWebAppContainer@1
+          displayName: Azure Web App on Container Deploy
+          inputs:
+            appName: ${{ parameters.webAppName }}
+            azureSubscription: ${{ parameters.serviceConnection }}
+            imageName: ${{ parameters.containerRegistryUrl }}/${{ parameters.acrRepository }}:${{ parameters.artifactType }}-$(VERSION)
+            deployToSlotOrASE: true
+            resourceGroupName: ${{ parameters.resourceGroup }}
+            slotName: ${{ parameters.deploymentSlot }}
+            configurationStrings: -linuxFxVersion DOCKER|${{ parameters.containerRegistryUrl }}/${{ parameters.acrRepository }}:${{ parameters.artifactType }}-$(VERSION)
+            
+        # Allow this template to be extended
+        - ${{ each step in parameters.userSteps }}:
+            - ${{ step }}

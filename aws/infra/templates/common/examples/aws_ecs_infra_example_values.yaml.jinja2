@@ -1,0 +1,92 @@
+common:
+  tags: 
+    name: 'example-{{env}}-000-ecs_cluster-000'
+  vpc:
+    name: example-{{ env }}-000-vpc-000
+    env: {{ env }}
+    cidr_block: '10.0.0.0/16'
+  subnets:
+    - name: example-{{ env }}-000-subnet_1-000
+      env: {{ env }}
+      availability_zone: us-east-1a
+      vpc_id: %%AWS_ENV_VARS_VPC_ID%%
+      cidr_block: 10.0.0.0/21
+    - name: example-{{ env }}-000-subnet_2-000
+      env: {{ env }}
+      availability_zone: us-east-1b
+      vpc_id: %%AWS_ENV_VARS_VPC_ID%%
+      cidr_block: 10.0.8.0/21
+  elbv2:
+    name: example-{{ env }}-000-elbv2-000
+    subnets:
+      - %%AWS_ENV_VARS_SUBNET_ID_1%%
+      - %%AWS_ENV_VARS_SUBNET_ID_2%%
+    security_groups:
+      - %%AWS_ENV_VARS_SG_ID%%
+    scheme: internet-facing
+    type: application
+    ip_address_type: ipv4
+  fargate_cluster:
+    cluster_name: example-{{ env }}-000-ecs_fargate_cluster-000
+  elbv2_listeners:
+    - load_balancer_arn: %%AWS_ENV_VARS_ELBV2_ARN%%
+      protocol: HTTPS
+      port: 443
+      ssl_policy: 'ELBSecurityPolicy-2016-08'
+      certificates:
+        - certificate_arn: 'arn:aws:acm:us-east-1:626181581720:certificate/c436039b-bade-4935-9f0e-81db48b19a05'
+      default_actions:
+        type: forward
+        forward_config: 
+          target_groups:
+            - target_group_arn: %%AWS_ENV_VARS_TARGET_GROUP_ARN%%
+              weight: 1
+    - load_balancer_arn: %%AWS_ENV_VARS_ELBV2_ARN%%
+      protocol: HTTP
+      port: 80
+      type: redirect
+      redirect_protocol: HTTPS
+      redirect_port: "443"
+  security_group:
+    group_name: 'example-{{ env }}-000-ecs_security_group-000'
+    vpc_id: %%AWS_ENV_VARS_VPC_ID%%
+    security_group_ingress:
+      group_id: %%AWS_ENV_VARS_SG_ID%%
+      ip_mappings:
+        - from_port: 443
+          ip_protocol: tcp
+          ip_ranges: 68.36.120.98/32
+          description: 'Example security Group'
+          to_port: 443
+        - from_port: 80
+          ip_protocol: tcp
+          ip_ranges: 10.0.0.0/8
+          description: 'Internal IP Target Group IP'
+          to_port: 80
+  elbv2_target_group:
+    name: 'example-{{ env }}-000-fargate-tg-000'
+    protocol: HTTP
+    protocol_version: HTTP1
+    port: 80
+    vpc_id: %%AWS_ENV_VARS_VPC_ID%%
+    health_check_protocol: HTTP
+    health_check_port: traffic-port
+    health_check_enabled: true
+    health_check_path: /
+    health_check_interval_seconds: 30
+    health_check_timeout_seconds: 5
+    healthy_threshold_count: 5
+    unhealthy_threshold_count: 2
+    target_type: ip
+  fargate_route_53:
+    hosted_zone_id: 'Z1YUXV7K0QDZ7Y'
+    change_batch:
+      comment: '{{ env }} Load Balancer Link to DNS'
+      changes:
+        - action: CREATE
+          resource_record_set:
+            name: '{{ env }}.cognition.code.dteenergy.com'
+            type: CNAME
+            ttl: 300
+            resource_records:
+              - value: %%AWS_ENV_VARS_LOAD_BALANCER_DNS%%

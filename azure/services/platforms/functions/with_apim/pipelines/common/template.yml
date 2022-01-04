@@ -1,0 +1,97 @@
+parameters:
+- name: environments
+  type: object
+  default : []
+- name: common
+  type: object
+  default: []
+
+stages:
+- ${{ each env in parameters.environments }}:
+  - stage: ${{ env.shortName }}_cd
+    jobs:
+    - ${{ each deployment in env.deployments }}:
+
+      - ${{ if or(eq(deployment.type, 'apim'), eq(deployment.type, 'dual')) }}:
+        - template: /azure/services/applications/apim/common/tasks/configure/template.yml@cloud-shell
+          parameters:
+            environmentName: ${{ env.fullName }}
+            deploymentName: ${{ deployment.name }}_apim_config
+            dependsOn:
+            - ${{ each dependency in deployment.dependsOn }}:
+              - ${{ dependency }}_apim_config
+              - ${{ dependency }}_functions
+              - ${{ dependency }}_post_deploy
+            condition: ${{ coalesce(deployment.condition, env.common.condition, parameters.common.condition) }}
+            apimSubscriptionId: ${{ coalesce(deployment.apimSubscriptionId, env.common.apimSubscriptionId, parameters.common.apimSubscriptionId, false) }}
+            apimRg: ${{ coalesce(deployment.apimRg, env.common.apimRg, parameters.common.apimRg, false) }}
+            apimName: ${{ coalesce(deployment.apimName, env.common.apimName, parameters.common.apimName, false) }}
+            apimApiPath: ${{ coalesce(deployment.apimApiPath, env.common.apimApiPath, parameters.common.apimApiPath, false) }}
+            apimApiName: ${{ coalesce(deployment.apimApiName, env.common.apimApiName, parameters.common.apimApiName, false) }}
+            apimApiBackendUrl: ${{ coalesce(deployment.apimApiBackendUrl, env.common.apimApiBackendUrl, parameters.common.apimApiBackendUrl, false) }}
+            apimApiSubscriptionKeyEnabled: ${{ coalesce(deployment.apimApiSubscriptionKeyEnabled, env.common.apimApiSubscriptionKeyEnabled, parameters.common.apimApiSubscriptionKeyEnabled, false) }}
+            apimProductName: ${{ coalesce(deployment.apimProductName, env.common.apimProductName, parameters.common.apimProductName, false) }}
+            apimApiPolicy: ${{ coalesce(deployment.apimApiPolicy, env.common.apimApiPolicy, parameters.common.apimApiPolicy, false) }}
+            apimServiceConnection: ${{ coalesce(deployment.apimServiceConnection, env.common.apimServiceConnection, parameters.common.apimServiceConnection, false) }}
+            azureRestDomainName: ${{ coalesce(deployment.azureRestDomainName, env.common.azureRestDomainName, parameters.common.azureRestDomainName, false) }}
+            azureRestVersion: ${{ coalesce(deployment.azureRestVersion, env.common.azureRestVersion, parameters.common.azureRestVersion, false) }}
+            apimApiSpec: ${{ coalesce(deployment.apimApiSpec, env.common.apimApiSpec, parameters.common.apimApiSpec, false) }}
+            apimNamedValues:
+            - ${{ each nv in parameters.common.apimNamedValues }}:
+              - ${{ nv }}
+            - ${{ each nv in env.common.apimNamedValues }}:
+              - ${{ nv }}
+            - ${{ each nv in deployment.apimNamedValues }}:
+              - ${{ nv }}
+            apimOperationPolicies:
+            - ${{ each operationPolicy in parameters.common.apimOperationPolicies }}:
+              - ${{ operationPolicy }}
+            - ${{ each operationPolicy in env.common.apimOperationPolicies }}:
+              - ${{ operationPolicy }}
+            - ${{ each operationPolicy in deployment.apimOperationPolicies }}:
+              - ${{ operationPolicy }}
+
+      - ${{ if or(eq(deployment.type, 'func'), eq(deployment.type, 'dual')) }}:
+        - template: /azure/services/platforms/common/tasks/deploy/template.yml@cloud-shell
+          parameters:
+            deploymentName: ${{ deployment.name }}_functions
+            environmentName: ${{ env.fullName }}  
+            dependsOn:
+            - ${{ each dependency in deployment.dependsOn }}:
+              - ${{ dependency }}_apim_config
+              - ${{ dependency }}_functions
+              - ${{ dependency }}_post_deploy
+            condition: ${{ coalesce(deployment.condition, env.common.condition, parameters.common.condition) }}
+            resourceGroup: ${{ coalesce(deployment.funcAppRg, env.common.funcAppRg, parameters.common.funcAppRg) }} 
+            serviceConnection: ${{ coalesce(deployment.funcServiceConnection, env.common.funcServiceConnection, parameters.common.funcServiceConnection) }}     
+            armTemplate: ${{ coalesce(deployment.armTemplate, env.common.armTemplate, parameters.common.armTemplate) }}
+            armTemplateParams:
+            - ${{ each paramFile in parameters.common.armTemplateParams }}:
+              - ${{ paramFile }}
+            - ${{ each paramFile in env.common.armTemplateParams }}:
+              - ${{ paramFile }}
+            - ${{ each paramFile in deployment.armTemplateParams }}:
+              - ${{ paramFile }}
+
+      - ${{ if eq(deployment.type, 'dual') }}:
+        - template: /azure/services/platforms/functions/with_apim/tasks/post_deploy/template.yml@cloud-shell
+          parameters:
+            environmentName: ${{ env.fullName }}
+            deploymentName: ${{ deployment.name }}_post_deploy
+            condition: ${{ coalesce(deployment.condition, env.common.condition, parameters.common.condition) }}
+            dependsOn:
+            - ${{ deployment.name }}_apim_config
+            - ${{ deployment.name }}_functions
+            - ${{ each dependency in deployment.dependsOn }}:
+              - ${{ dependency }}_apim_config
+              - ${{ dependency }}_functions
+              - ${{ dependency }}_post_deploy
+            funcKeyNamedValue: ${{ coalesce(deployment.funcKeyNamedValue, env.common.funcKeyNamedValue, parameters.common.funcKeyNamedValue, false) }}
+            funcAppRg: ${{ coalesce(deployment.funcAppRg, env.common.funcAppRg, parameters.common.funcAppRg) }}
+            funcAppName: ${{ coalesce(deployment.funcAppName, env.common.funcAppName, parameters.common.funcAppName) }}
+            funcAppPath: ${{ coalesce(deployment.funcAppPath, env.common.funcAppPath, parameters.common.funcAppPath) }}
+            apimRg: ${{ coalesce(deployment.apimRg, env.common.apimRg, parameters.common.apimRg) }}
+            apimName: ${{ coalesce(deployment.apimName, env.common.apimName, parameters.common.apimName) }}
+            apimApiName: ${{ coalesce(deployment.apimApiName, env.common.apimApiName, parameters.common.apimApiName) }}
+            apimServiceConnection: ${{ coalesce(deployment.apimServiceConnection, env.common.apimServiceConnection, parameters.common.apimServiceConnection) }}
+            funcServiceConnection: ${{ coalesce(deployment.funcServiceConnection, env.common.funcServiceConnection, parameters.common.funcServiceConnection) }}

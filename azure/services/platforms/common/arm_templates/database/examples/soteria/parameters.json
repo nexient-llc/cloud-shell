@@ -1,0 +1,55 @@
+{
+    "$schema":"https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+    "contentVersion":"1.0.0.0",
+    "parameters":{
+        "serverName": {
+            "value": "dte-soteria-dev-sql"
+        },
+        "sqlDbName": {
+            "value": "cognitiondev"
+        },
+        "administratorLogin": {
+            "value": "cognition"
+        },
+        "administratorLoginPassword": {
+            "reference": {
+                "keyVault": {
+                  "id": "/subscriptions/10ffc557-db0a-43a9-9db8-1db6c0c95b4c/resourceGroups/DTE-E2-DEV-SOT20-RG/providers/Microsoft.KeyVault/vaults/dte-e2-dev-sot20-kv"
+                },
+                "secretName": "DatabasePassword"
+            }
+        },
+        "sqlDbMinCapacity": {
+            "value": "0.5"
+        },
+        "sqlDbSkuTier": {
+            "value": "GeneralPurpose"
+        },
+        "sqlDbAutoPauseDelay": {
+            "value": "60"
+        },
+        "sqlDbSkuName": {
+            "value": "GP_S_Gen5_4"
+        },
+        "allowAllAzureConnections": {
+            "value": true
+        },
+        "administrators": {
+            "value": {
+                "administratorType": "ActiveDirectory",
+                "login": "Kevin Allen",
+                "sid": "0d430b46-a976-4b7b-bbe9-14cbdc74f085",
+                "tenantId": "8e61d5fe-7749-4e76-88ee-6d8799ae8143"
+            }
+        },
+        "ipWhitelistEntries": {
+            "value": [
+                {
+                    "description": "SampleIpAddress",
+                    "endIpAddress": "13.107.246.51",
+                    "startIpAddress": "13.107.246.51"
+                }
+            ]
+        }
+    }
+}

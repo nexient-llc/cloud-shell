@@ -1,0 +1,98 @@
+parameters:
+- name: environments
+  type: object
+  default : []
+- name: common
+  type: object
+  default: []
+
+stages:
+- ${{ each env in parameters.environments }}:
+  - template: /azure/services/applications/common/pipelines/single_env/template.yml@cloud-shell
+    parameters:
+      common: ${{ parameters.common }}
+      env: ${{ env }}
+      deployStages:
+      - ${{ if eq(env.manualValidation, true) }}:
+        - stage: ${{ env.shortName }}_preconfigure
+          jobs:
+          - template: /azure/services/common/tasks/manual_validation/template.yml@cloud-shell 
+            parameters:
+              jobName:  ${{ env.shortName }}_manual_validation
+              displayName: Manual Validation
+              jobTimeoutInMinutes:  ${{ coalesce(env.common.jobTimeoutInMinutes, parameters.common.jobTimeoutInMinutes) }}
+              taskTimeoutInMinutes:  ${{ coalesce(env.common.taskTimeoutInMinutes, parameters.common.taskTimeoutInMinutes) }}
+              onTimeout: ${{ coalesce(env.common.onTimeout, parameters.common.onTimeout) }}
+
+      - stage: ${{ env.shortName }}_configure
+        jobs:
+        - ${{ each deployment in env.deployments }}:
+          - template: /azure/services/applications/apim/common/tasks/configure/template.yml@cloud-shell
+            parameters:
+              environmentName: ${{ env.fullName }}
+              deploymentName: ${{ deployment.name }}
+              dependsOn: ${{ deployment.dependsOn }}
+              condition: ${{ coalesce(deployment.condition, env.common.condition, parameters.common.condition, true) }}
+              version: ${{ coalesce(deployment.version, env.common.version, parameters.common.version, false) }}
+              tagsIncludeName: ${{ coalesce(deployment.tagsIncludeName, env.common.tagsIncludeName, parameters.common.tagsIncludeName, false) }}
+              artifactType: ${{ coalesce(deployment.artifactType, env.common.artifactType, parameters.common.artifactType, false) }}
+              artifactName: ${{ coalesce(deployment.artifactName, env.common.artifactName, parameters.common.artifactName, false) }}
+              artifactFeed: ${{ coalesce(deployment.artifactFeed, env.common.artifactFeed, parameters.common.artifactFeed, false) }}
+              apimSubscriptionId: ${{ coalesce(deployment.apimSubscriptionId, env.common.apimSubscriptionId, parameters.common.apimSubscriptionId, false) }}
+              apimRg: ${{ coalesce(deployment.apimRg, env.common.apimRg, parameters.common.apimRg, false) }}
+              funcServiceConnection: ${{ coalesce(deployment.funcServiceConnection, env.common.funcServiceConnection, parameters.common.funcServiceConnection, false) }}
+              apimName: ${{ coalesce(deployment.apimName, env.common.apimName, parameters.common.apimName, false) }}
+              apimApiPath: ${{ coalesce(deployment.apimApiPath, env.common.apimApiPath, parameters.common.apimApiPath, false) }}
+              apimApiName: ${{ coalesce(deployment.apimApiName, env.common.apimApiName, parameters.common.apimApiName, false) }}
+              apimApiPolicy: ${{ coalesce(deployment.apimApiPolicy, env.common.apimApiPolicy, parameters.common.apimApiPolicy, false) }}
+              apimApiBackendUrl: ${{ coalesce(deployment.apimApiBackendUrl, env.common.apimApiBackendUrl, parameters.common.apimApiBackendUrl, false) }}
+              apimApiSubscriptionKeyEnabled: ${{ coalesce(deployment.apimApiSubscriptionKeyEnabled, env.common.apimApiSubscriptionKeyEnabled, parameters.common.apimApiSubscriptionKeyEnabled, false) }}
+              apimProductName: ${{ coalesce(deployment.apimProductName, env.common.apimProductName, parameters.common.apimProductName, false) }}
+              apimServiceConnection: ${{ coalesce(deployment.apimServiceConnection, env.common.apimServiceConnection, parameters.common.apimServiceConnection, false) }}
+              azureRestDomainName: ${{ coalesce(deployment.azureRestDomainName, env.common.azureRestDomainName, parameters.common.azureRestDomainName, false) }}
+              azureRestVersion: ${{ coalesce(deployment.azureRestVersion, env.common.azureRestVersion, parameters.common.azureRestVersion, false) }}
+              pathToSpec: ${{ coalesce(deployment.pathToSpec, env.common.pathToSpec, parameters.common.pathToSpec, 'openapi.json') }}
+              apimBackends:
+              - ${{ each backend in parameters.common.apimBackends }}:
+                - ${{ backend }}
+              - ${{ each backend in env.common.apimBackends }}:
+                - ${{ backend }}
+              - ${{ each backend in deployment.apimBackends }}:
+                - ${{ backend }}
+              apimNamedValues:
+              - ${{ each nv in parameters.common.apimNamedValues }}:
+                - ${{ nv }}
+              - ${{ each nv in env.common.apimNamedValues }}:
+                - ${{ nv }}
+              - ${{ each nv in deployment.apimNamedValues }}:
+                - ${{ nv }}
+
+      - ${{ if eq(env.manualValidation, true) }}:
+        - stage: ${{ env.shortName }}_prerelease
+          jobs:
+          - template: /azure/services/common/tasks/manual_validation/template.yml@cloud-shell 
+            parameters:
+              jobName:  ${{ env.shortName }}_manual_validation
+              displayName: Manual Validation
+              jobTimeoutInMinutes:  ${{ coalesce(env.common.jobTimeoutInMinutes, parameters.common.jobTimeoutInMinutes) }}
+              taskTimeoutInMinutes:  ${{ coalesce(env.common.taskTimeoutInMinutes, parameters.common.taskTimeoutInMinutes) }}
+              onTimeout: ${{ coalesce(env.common.onTimeout, parameters.common.onTimeout) }}
+
+      - stage: ${{ env.shortName }}_release
+        jobs:
+        - ${{ each deployment in env.deployments }}:
+          - template: /azure/services/applications/apim/common/tasks/release/template.yml@cloud-shell
+            parameters:
+              environmentName: ${{ env.fullName }}
+              deploymentName: ${{ deployment.name }}
+              dependsOn: ${{ deployment.dependsOn }}
+              version: ${{ coalesce(deployment.version, env.common.version, parameters.common.version, false) }}
+              tagsIncludeName: ${{ coalesce(deployment.tagsIncludeName, env.common.tagsIncludeName, parameters.common.tagsIncludeName, false) }}
+              artifactType: ${{ coalesce(deployment.artifactType, env.common.artifactType, parameters.common.artifactType, false) }}
+              artifactName: ${{ coalesce(deployment.artifactName, env.common.artifactName, parameters.common.artifactName, false) }}
+              artifactFeed: ${{ coalesce(deployment.artifactFeed, env.common.artifactFeed, parameters.common.artifactFeed, false) }}
+              condition: ${{ coalesce(deployment.condition, env.common.condition, parameters.common.condition) }}
+              apimRg: ${{ coalesce(deployment.apimRg, env.common.apimRg, parameters.common.apimRg, false) }}
+              apimName: ${{ coalesce(deployment.apimName, env.common.apimName, parameters.common.apimName, false) }}
+              apimApiName: ${{ coalesce(deployment.apimApiName, env.common.apimApiName, parameters.common.apimApiName, false) }}
+              apimServiceConnection: ${{ coalesce(deployment.apimServiceConnection, env.common.apimServiceConnection, parameters.common.apimServiceConnection, false) }}

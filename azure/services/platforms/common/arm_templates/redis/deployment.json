@@ -1,0 +1,66 @@
+{
+    "$schema": "http://schema.management.azure.com/schemas/2014-04-01-preview/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+       "cacheName": {
+        "type": "string",
+        "metadata": {
+          "description": "The name of the Redis Cache."
+        }
+      },
+      "location": {
+        "type": "string",
+        "defaultValue": "[resourceGroup().location]",
+        "metadata": {
+          "description": "The geo-location where the resource lives."
+        }
+      },       
+      "sku": {
+        "type": "object",
+        "defaultValue": [],
+        "metadata": {
+          "description": "SKU parameters supplied to the create Redis operation."
+        }
+      },     
+      "enableNonSslPort": {
+        "type": "bool",
+        "defaultValue": false,
+        "metadata": {
+          "description": "Specifies whether the non-ssl Redis server port (6379) is enabled."
+        }
+      },        
+      "redisVersion": {
+        "type": "string",
+        "defaultValue": "6",
+        "metadata": {
+          "description": "Redis version. Only major version will be used in PUT/PATCH request with current valid values: (4, 6)"
+        },
+        "allowedValues": ["4", "6"]
+      },
+      "minimumTlsVersion": {
+        "type": "string",
+        "defaultValue": "1.2",
+        "metadata": {
+          "description": "Requires clients to use a specified TLS version (or higher) to connect (e,g, '1.0', '1.1', '1.2')."
+        },
+        "allowedValues": ["1.0", "1.1", "1.2" ]
+      }      
+    },
+    "resources": [
+        {
+            "name": "[parameters('cacheName')]",
+            "type": "Microsoft.Cache/redis",
+            "apiVersion": "2020-12-01",
+            "location": "[parameters('location')]",
+            "dependsOn": [],
+            "properties": {
+                "sku": "[parameters('sku')]",
+                "redisConfiguration": {},
+                "enableNonSslPort": "[parameters('enableNonSslPort')]",
+                "redisVersion": "[parameters('redisVersion')]",
+                "minimumTlsVersion": "[parameters('minimumTlsVersion')]"
+            },
+            "tags": {}
+        }
+    ]
+}

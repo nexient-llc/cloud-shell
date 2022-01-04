@@ -1,0 +1,116 @@
+parameters:
+  - name: sourceDirectory
+    type: string
+    default: false
+
+  - name: condition
+    type: string
+    default: true
+
+  - name: jobName
+    type: string
+    default: false
+
+  - name: displayName
+    type: string
+    default: false
+
+  - name: serviceName
+    type: string
+    default: false
+
+  - name: createFromExisting
+    type: string
+    default: false
+
+  - name: tagsIncludeName
+    type: boolean
+    default: false
+
+  - name: acrRepository
+    type: string
+    default: false
+
+  - name: containerRegistryUrl
+    type: string
+    default: false
+
+  - name: buildArguments
+    type: string
+    default: false
+
+  - name: testEnvFile
+    type: string
+    default: false
+
+  - name: testCommands
+    type: object
+    default: []
+
+  - name: registryServiceConnection
+    type: string
+    default: false
+
+  - name: artifactType
+    type: string
+    default: false
+
+  - name: registryArmServiceConnection
+    type: string
+    default: false
+
+  - name: acrSubscriptionId
+    type: string
+    default: false
+
+  - name: acrResourceGroup
+    type: string
+    default: false    
+
+jobs:
+  - template: ../common/docker-template.yml@cloud-shell
+    parameters:
+      jobName: ${{ parameters.jobName }}
+      condition: ${{ parameters.condition }}
+      displayName: ${{ parameters.displayName }}
+      serviceName: ${{ parameters.serviceName }}
+      createFromExisting: ${{ parameters.createFromExisting }}
+      tagsIncludeName: ${{ parameters.tagsIncludeName }}
+      sourceDirectory: ${{ parameters.sourceDirectory }}
+      acrRepository: ${{ parameters.acrRepository }}
+      artifactType: ${{ parameters.artifactType }}
+      registryServiceConnection: ${{ parameters.registryServiceConnection }}
+      registryArmServiceConnection: ${{ parameters.registryArmServiceConnection }}
+      containerRegistryUrl: ${{ parameters.containerRegistryUrl }}
+      acrSubscriptionId: ${{ parameters.acrSubscriptionId }}
+      acrResourceGroup: ${{ parameters.acrResourceGroup }}
+      buildsteps:
+        - task: Docker@2
+          displayName: Login to registry
+          inputs:
+            command: login
+            containerRegistry: ${{ parameters.registryServiceConnection }}
+
+        - task: Docker@2
+          displayName: Build image
+          inputs:
+            command: build
+            repository: ${{ parameters.acrRepository }}
+            Dockerfile: ${{ parameters.sourceDirectory }}/Dockerfile
+            tags: |
+              ${{ parameters.artifactType }}-$(VERSION)
+            arguments: ${{ parameters.buildArguments }}
+
+        - ${{ each command in parameters.testCommands }}:
+            - task: Bash@3
+              displayName: Run ${{ command }}
+              inputs:
+                targetType: inline
+                script: |
+                  docker run \
+                    --attach STDERR \
+                    --attach STDOUT \
+                    --env-file ${{ parameters.testEnvFile }} \
+                    --user 0 \
+                    ${{ parameters.containerRegistryUrl }}/${{ parameters.acrRepository }}:${{ parameters.artifactType }}-$(VERSION) \
+                    /bin/bash -c '${{ command }}'

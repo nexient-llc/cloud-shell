@@ -1,0 +1,61 @@
+parameters:
+- name: environments
+  type: object
+  default: []
+
+- name: common
+  type: object
+  default: []
+
+
+stages:
+- ${{ each env in parameters.environments }}:
+  - template: /azure/services/applications/common/pipelines/single_env/template.yml@cloud-shell
+    parameters:
+      common: ${{ parameters.common }}
+      env: ${{ env }}
+      deployStages:
+      - ${{ if eq(env.manualValidation, true) }}:
+        - stage: ${{ env.shortName }}_predeploy
+          jobs:
+          - template: /azure/services/common/tasks/manual_validation/template.yml@cloud-shell 
+            parameters:
+              jobName:  ${{ env.shortName }}_manual_validation
+              displayName: Manual Validation
+              jobTimeoutInMinutes:  ${{ coalesce(env.common.jobTimeoutInMinutes, parameters.common.jobTimeoutInMinutes) }}
+              taskTimeoutInMinutes:  ${{ coalesce(env.common.taskTimeoutInMinutes, parameters.common.taskTimeoutInMinutes) }}
+              onTimeout: ${{ coalesce(env.common.onTimeout, parameters.common.onTimeout) }}
+
+      - stage: ${{ env.shortName }}_cd
+        jobs:
+        - ${{ each deployment in env.deployments }}:
+          - template: /azure/services/applications/cdn/tasks/deploy/template.yml@cloud-shell
+            parameters:
+              deploymentName: ${{ deployment.name }}
+              environmentName: ${{ env.fullName }}  
+              dependsOn: ${{ deployment.dependsOn }}
+              condition: ${{ coalesce(deployment.condition, env.common.condition, parameters.common.condition, true) }}
+              resourceGroup: ${{ coalesce(deployment.resourceGroup, env.common.resourceGroup, parameters.common.resourceGroup, false) }} 
+              serviceConnection: ${{ coalesce(deployment.serviceConnection, env.common.serviceConnection, parameters.common.serviceConnection, false) }}
+              version: ${{ coalesce(deployment.version, env.common.version, parameters.common.version, false) }}
+              tagsIncludeName: ${{ coalesce(deployment.tagsIncludeName, env.common.tagsIncludeName, parameters.common.tagsIncludeName) }}
+              artifactType: ${{ coalesce(deployment.artifactType, env.common.artifactType, parameters.common.artifactType, false) }}
+              artifactName: ${{ coalesce(deployment.artifactName, env.common.artifactName, parameters.common.artifactName, false) }}
+              artifactFeed: ${{ coalesce(deployment.artifactFeed, env.common.artifactFeed, parameters.common.artifactFeed, false) }}
+              storageAccountName: ${{ coalesce(deployment.storageAccountName, env.common.storageAccountName, parameters.common.storageAccountName, false) }}
+              containerName: ${{ coalesce(deployment.containerName, env.common.containerName, parameters.common.containerName, false) }}
+              ${{ if coalesce(deployment.cdnConfig, env.common.cdnConfig, parameters.common.cdnConfig)  }}:
+                cdnConfig: 
+                  cdnEndpointName: ${{ coalesce(deployment.cdnConfig.cdnEndpointName, env.common.cdnConfig.cdnEndpointName, parameters.common.cdnConfig.cdnEndpointName) }}
+                  cdnProfileName: ${{ coalesce(deployment.cdnConfig.cdnProfileName, env.common.cdnConfig.cdnProfileName, parameters.common.cdnConfig.cdnProfileName) }}
+
+      - ${{ if ne(env.e2eConfig.commands, '') }}:
+        - stage: ${{ env.shortName }}_e2e
+          jobs:
+          - ${{ each deployment in env.deployments }}:
+            - template: /azure/services/applications/common/tasks/e2e_testing/template.yml@cloud-shell
+              parameters:
+                commands:
+                - ${{ env.e2eConfig.commands }}
+                workingDirectory: ${{ env.e2eConfig.workingDirectory }}
+                condition: ${{ coalesce(deployment.condition, env.common.condition, parameters.common.condition, true) }}

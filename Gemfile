@@ -1,0 +1,1 @@
+gem 'thor-scmversion', '~> 1.7'

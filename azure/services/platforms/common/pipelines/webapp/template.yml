@@ -1,0 +1,37 @@
+parameters:
+- name: environments
+  type: object
+  default: []
+
+- name: common
+  type: object
+  default: []
+
+stages:
+- ${{ each env in parameters.environments }}:
+  - stage: ${{ env.shortName }}_cd
+    jobs:
+    - ${{ each deployment in env.deployments }}:
+      - template: /azure/services/platforms/webapp/common/tasks/deploy/template.yml@cloud-shell
+        parameters:
+          deploymentName: ${{ deployment.name }}
+          environmentName: ${{ env.fullName }}  
+          condition: ${{ coalesce(deployment.condition, env.common.condition, parameters.common.condition) }}
+          dependsOn: ${{ deployment.dependsOn }}
+          resourceGroup: ${{ coalesce(deployment.resourceGroup, env.common.resourceGroup, parameters.common.resourceGroup) }} 
+          serviceConnection: ${{ coalesce(deployment.serviceConnection, env.common.serviceConnection, parameters.common.serviceConnection) }}     
+          armTemplate: ${{ coalesce(deployment.armTemplate, env.common.armTemplate, parameters.common.armTemplate) }}
+          armTemplateParams:
+          - ${{ each paramFile in parameters.common.armTemplateParams }}:
+            - ${{ paramFile }}
+          - ${{ each paramFile in env.common.armTemplateParams }}:
+            - ${{ paramFile }}
+          - ${{ each paramFile in deployment.armTemplateParams }}:
+            - ${{ paramFile }}
+          sslConfigs: 
+          - ${{ each sslConfig in parameters.common.sslConfigs }}: 
+            - ${{ sslConfig }}
+          - ${{ each sslConfig in env.common.sslConfigs }}: 
+            - ${{ sslConfig }} 
+          - ${{ each sslConfig in deployment.sslConfigs }}: 
+            - ${{ sslConfig }}

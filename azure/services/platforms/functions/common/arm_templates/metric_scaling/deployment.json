@@ -1,0 +1,156 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": {
+      "type": "string"
+    },
+    "hostingPlanName": {
+      "type": "string"
+    },
+    "autoscaleProfileName": {
+      "type": "string",
+      "defaultValue": "[concat(parameters('hostingPlanName'), '-autoscale')]"
+    },
+    "autoscaleMinInstances": {
+      "type": "int",
+      "defaultValue": 1
+    },
+    "autoscaleMaxInstances": {
+      "type": "int",
+      "defaultValue": 3
+    },
+    "autoscaleDefaultInstances": {
+      "type": "int",
+      "defaultValue": 1
+    },
+    "autoscaleOutCPUThreshold": {
+      "type": "int",
+      "defaultValue": 70
+    },
+    "autoscaleInCPUThreshold": {
+      "type": "int",
+      "defaultValue": 30
+    },
+    "autoscaleOutMemThreshold": {
+      "type": "int",
+      "defaultValue": 80
+    },
+    "autoscaleInMemThreshold": {
+      "type": "int",
+      "defaultValue": 35
+    },
+    "autoscaleOutStep": {
+      "type": "int",
+      "defaultValue": 1
+    },
+    "autoscaleOutCooldown": {
+      "type": "string",
+      "defaultValue": "PT5M"
+    },
+    "autoscaleInStep": {
+      "type": "int",
+      "defaultValue": 1
+    },
+    "autoscaleInCooldown": {
+      "type": "string",
+      "defaultValue": "PT15M"
+    }
+  },
+  "resources": [
+    {
+      "type": "microsoft.insights/autoscalesettings",
+      "name": "[parameters('autoscaleProfileName')]",
+      "apiVersion": "2015-04-01",
+      "location": "[parameters('location')]",
+      "properties": {
+        "enabled": true,
+        "targetResourceUri": "[resourceId('Microsoft.Web/serverfarms', parameters('hostingPlanName'))]",
+        "profiles": [
+          {
+            "name": "Autoscale by Memory and CPU usage",
+            "capacity": {
+              "minimum": "[parameters('autoscaleMinInstances')]",
+              "maximum": "[parameters('autoscaleMaxInstances')]",
+              "default": "[parameters('autoscaleDefaultInstances')]"
+            },
+            "rules": [
+              {
+                "metricTrigger": {
+                  "metricName": "CpuPercentage",
+                  "metricResourceUri": "[resourceId('Microsoft.Web/serverfarms', parameters('hostingPlanName'))]",
+                  "operator": "GreaterThan",
+                  "statistic": "Average",
+                  "threshold": "[parameters('autoscaleOutCPUThreshold')]",
+                  "timeAggregation": "Average",
+                  "timeGrain": "PT1M",
+                  "timeWindow": "PT10M"
+                },
+                "scaleAction": {
+                  "direction": "Increase",
+                  "type": "ChangeCount",
+                  "value": "[parameters('autoscaleOutStep')]",
+                  "cooldown": "[parameters('autoscaleOutCooldown')]"
+                }
+              },
+              {
+                "metricTrigger": {
+                  "metricName": "CpuPercentage",
+                  "metricResourceUri": "[resourceId('Microsoft.Web/serverfarms', parameters('hostingPlanName'))]",
+                  "operator": "LessThan",
+                  "statistic": "Average",
+                  "threshold": "[parameters('autoscaleInCPUThreshold')]",
+                  "timeAggregation": "Average",
+                  "timeGrain": "PT1M",
+                  "timeWindow": "PT10M"
+                },
+                "scaleAction": {
+                  "direction": "Decrease",
+                  "type": "ChangeCount",
+                  "value": "[parameters('autoscaleInStep')]",
+                  "cooldown": "[parameters('autoscaleInCooldown')]"
+                }
+              },
+              {
+                "metricTrigger": {
+                  "metricName": "MemoryPercentage",
+                  "metricResourceUri": "[resourceId('Microsoft.Web/serverfarms', parameters('hostingPlanName'))]",
+                  "operator": "GreaterThan",
+                  "statistic": "Average",
+                  "threshold": "[parameters('autoscaleOutMemThreshold')]",
+                  "timeAggregation": "Average",
+                  "timeGrain": "PT1M",
+                  "timeWindow": "PT10M"
+                },
+                "scaleAction": {
+                  "direction": "Increase",
+                  "type": "ChangeCount",
+                  "value": "[parameters('autoscaleOutStep')]",
+                  "cooldown": "[parameters('autoscaleOutCooldown')]"
+                }
+              },
+              {
+                "metricTrigger": {
+                  "metricName": "MemoryPercentage",
+                  "metricResourceUri": "[resourceId('Microsoft.Web/serverfarms', parameters('hostingPlanName'))]",
+                  "operator": "LessThan",
+                  "statistic": "Average",
+                  "threshold": "[parameters('autoscaleInMemThreshold')]",
+                  "timeAggregation": "Average",
+                  "timeGrain": "PT1M",
+                  "timeWindow": "PT10M"
+                },
+                "scaleAction": {
+                  "direction": "Decrease",
+                  "type": "ChangeCount",
+                  "value": "[parameters('autoscaleInStep')]",
+                  "cooldown": "[parameters('autoscaleInCooldown')]"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

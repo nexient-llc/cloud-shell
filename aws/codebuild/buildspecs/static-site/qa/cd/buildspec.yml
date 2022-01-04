@@ -1,0 +1,22 @@
+  
+version: 0.2
+
+phases:
+  build:
+    commands:
+      - SYSTEM_DEPS="wget gawk jq firefox openjdk-11-jdk"
+      - curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add -
+      - add-apt-repository ppa:openjdk-r/ppa
+      - apt-get update && apt-get install -y ${SYSTEM_DEPS}
+      - wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+      - yes | dpkg -i google-chrome-stable_current_amd64.deb
+      - echo "Deploying Artifact - ${VERSION} built from Git Tag - ${VERSION}"
+      - cd ../
+      - cd ${CODEBUILD_SRC_DIR_CONFIG_JSON}
+      - if [ "${CONFIG_JSON_REPO_COMMIT}" != "latest" ]; then git checkout ${CONFIG_JSON_REPO_COMMIT}; fi
+      - cd ${CODEBUILD_SRC_DIR}
+      - git config --global hub.protocol https
+      - git config --global user.email $GITHUB_USER_EMAIL
+      - git config --global user.name $GITHUB_USERNAME
+      - export CONFIG_JSON_FILE="${CODEBUILD_SRC_DIR_CONFIG_JSON}/deploy_properties/${ENVIRONMENT}-config.json"
+      - bash -x ${CLOUD_SHELL_DIR}/aws/codebuild/scripts/deploy_environment.sh "${CODEBUILD_SRC_DIR}" "${E2E_TEST}"

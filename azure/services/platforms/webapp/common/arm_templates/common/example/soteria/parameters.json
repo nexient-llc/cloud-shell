@@ -1,0 +1,144 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "webAppName": {
+      "value": "dte-soteria-dev-container-webapp"
+    },
+    "deploymentSlots": {
+      "value": [
+        "false"
+      ]
+    },
+    "location": {
+      "value": "eastus2"
+    },
+    "hostingPlanProps": {
+      "value": {
+        "name": "dte-soteria-dev-container-asp",
+        "reserved": true
+      }
+    },
+    "httpsOnly": {
+      "value": true
+    },
+    "sku": {
+      "value": "B1"
+    },
+    "appInsightsName": {
+      "value": "dte-soteria-dev-ai"
+    },
+    "technicalActionGroupName": {
+      "value": "dte-soteria-dev-ai-technical-action"
+    },
+    "technicalActionGroupEmails": {
+      "value": []
+    },
+    "budgetName": {
+      "value": "dte-e2-dev-soteria-budget"
+    },
+    "budgetAmount": {
+      "value": 100
+    },
+    "budgetTimeGrain": {
+      "value": "Monthly"
+    },
+    "budgetStartDate": {
+      "value": "2021-10-01"
+    },
+    "enableAlerts": {
+      "value": true
+    },
+    "metricAlertWindowSize": {
+      "value": "PT5M"
+    },
+    "metricAlertFrequency": {
+      "value": "PT5M"
+    },
+    "metricAlertSensitivity": {
+      "value": "Medium"
+    },
+    "metricAlertViolationThreshold": {
+      "value": 4
+    },
+    "frontDoorName": {
+      "value": "dte-soteria-dev-fd"
+    },
+    "wafPolicyName": {
+      "value": "dteE2DevSoteriaWp"
+    },
+    "policySettings": {
+      "value": {
+        "mode": "Prevention",
+        "enabledState": "Enabled"
+      }
+    },
+    "loadBalancingSampleSize": {
+      "value": 1
+    },
+    "loadBalancingSuccessfulSamplesRequired": {
+      "value": 1
+    },
+    "managedRuleSetType": {
+      "value": "DefaultRuleSet"
+    },
+    "managedRuleSetRuleSetVersion": {
+      "value": "1.0"
+    },
+    "applicationLogLevel": {
+      "value": "Warning"
+    },
+    "httpLogsEnabled": {
+      "value": "true"
+    },
+    "httpLogsRetentionInDays": {
+      "value": "90"
+    },
+    "httpLogsRetentionInMb": {
+      "value": "100"
+    },
+    "appInsightAgentExtensionVersion": {
+      "type": "~3"
+    },
+    "minTlsVersion": {
+      "value": "1.2"
+    },
+    "alwaysOn": {
+      "value": true
+    },
+    "healthProbeSettingsProperties": {
+      "value": {
+        "intervalInSeconds": 120,
+        "path": "/api/v1/status/all",
+        "protocol": "Https",
+        "enabledState": "Enabled",
+        "healthProbeMethod": "HEAD"
+      }
+    },
+    "resetAppSettings": {
+      "value": false
+    },
+    "frontDoorObjectId": {
+      "value": "653d7373-ef9c-40ca-abe3-6dd3b578790e"
+    },
+    "keyVaultName": {
+      "value": "dte-e2-dev-sot20-kv"
+    },
+    "frontendEndpointConfig": {
+      "value": [
+        {
+          "name": "dte-soteria-dev-fd-frontendEndpoint",
+          "hostName": "dte-soteria-dev-fd.azurefd.net"
+        },
+        {
+          "name": "dte-soteria-dev-fd-frontEndEndpointCustomName",
+          "hostName": "dev.cognition.dteenergy.com"
+        },
+        {
+          "name": "inactive-dev-cognition-dteenergy-com",
+          "hostName": "inactive.dev.cognition.dteenergy.com"
+        }
+      ]
+    }
+  }
+}

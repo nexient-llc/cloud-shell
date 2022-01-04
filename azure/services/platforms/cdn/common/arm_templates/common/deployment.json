@@ -1,0 +1,156 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": {
+      "type": "string"
+    },
+    "storageAccountName": {
+      "type": "string"
+    },
+    "storageAccountKind": {
+      "type": "string"
+    },
+    "storageAccountSku": {
+      "type": "string"
+    },
+    "cdnProfileName": {
+      "type": "string"
+    },
+    "cdnProfileSku": {
+      "type": "string"
+    },
+    "httpAllowed": {
+      "type": "bool"
+    },
+    "queryStringCachingBehavior": {
+      "type": "string"
+    },
+    "contentTypesToCompress": {
+      "type": "array"
+    },
+    "compressionEnabled": {
+      "type": "bool"
+    },
+    "keyVaultName": {
+      "type": "string"
+    },
+    "cdnObjectId": {
+      "type": "string"
+    },
+    "cdnEndpointName": {
+      "type": "string"
+    },
+    "customDomainConfig": {
+      "type": "array"
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2021-01-01",
+      "name": "[parameters('storageAccountName')]",
+      "location": "[parameters('location')]",
+      "kind": "[parameters('storageAccountKind')]",
+      "sku": {
+        "name": "[parameters('storageAccountSku')]"
+      }
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts/blobServices",
+      "apiVersion": "2021-04-01",
+      "name": "[concat(parameters('storageAccountName'), '/default')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
+      "apiVersion": "2021-04-01",
+      "name": "[concat(parameters('storageAccountName'), '/default/$web')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts/blobServices', parameters('storageAccountName'), 'default')]",
+        "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
+      ],
+      "properties": {
+        "publicAccess": "None"
+      }
+    },
+    {
+      "type": "Microsoft.Cdn/profiles",
+      "apiVersion": "2020-09-01",
+      "name": "[parameters('cdnProfileName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "[parameters('cdnProfileSku')]"
+      }
+    },
+    {
+      "type": "Microsoft.Cdn/profiles/endpoints",
+      "apiVersion": "2020-09-01",
+      "name": "[concat(parameters('cdnProfileName'), '/', parameters('cdnEndpointName'))]",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Cdn/profiles', parameters('cdnProfileName'))]"
+      ],
+      "properties": {
+        "originHostHeader": "[replace(replace(reference(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))).primaryEndpoints.web,'https://',''),'/','')]",
+        "isHttpAllowed": "[parameters('httpAllowed')]",
+        "queryStringCachingBehavior": "[parameters('queryStringCachingBehavior')]",
+        "contentTypesToCompress": "[parameters('contentTypesToCompress')]",
+        "isCompressionEnabled": "[parameters('compressionEnabled')]",
+        "origins": [
+          {
+            "name": "origin1",
+            "properties": {
+              "hostName": "[replace(replace(reference(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))).primaryEndpoints.web,'https://',''),'/','')]",
+              "httpPort": 80,
+              "httpsPort": 443,
+              "originHostHeader": "[replace(replace(reference(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))).primaryEndpoints.web,'https://',''),'/','')]",
+              "enabled": true
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Cdn/profiles/endpoints/customDomains",
+      "apiVersion": "2019-04-15",
+      "name": "[concat(parameters('cdnProfileName'), '/', parameters('cdnEndpointName'), '/', parameters('customDomainConfig')[copyIndex()].name)]",
+      "condition": "[greater(length(parameters('customDomainConfig')), 0)]",
+      "properties": {
+        "hostName": "[parameters('customDomainConfig')[copyIndex()].hostName]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Cdn/profiles/endpoints', parameters('cdnProfileName'), parameters('cdnEndpointName'))]"
+      ],
+      "copy": {
+        "name": "customDomaincopy",
+        "count": "[length(parameters('customDomainConfig'))]"
+      }
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults/accessPolicies",
+      "apiVersion": "2021-06-01-preview",
+      "name": "[concat(parameters('keyVaultName'), '/add')]",
+      "properties": {
+        "accessPolicies": [
+          {
+            "objectId": "[parameters('cdnObjectId')]",
+            "permissions": {
+              "certificates": [
+                "get",
+                "list"
+              ],
+              "secrets": [
+                "get",
+                "list"
+              ]
+            },
+            "tenantId": "[subscription().tenantId]"
+          }
+        ]
+      }
+    }
+  ]
+}

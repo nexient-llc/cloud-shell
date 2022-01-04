@@ -1,0 +1,36 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "webAppName": {
+      "type": "string"
+    },
+    "deploymentSlots": {
+      "type": "array"
+    },
+    "keyVaultName": {
+      "type": "string",
+      "metadata": {
+          "description": "The resource name for keyvault."
+      }       
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.KeyVault/vaults/accessPolicies",
+      "apiVersion": "2019-09-01",
+      "name": "[concat(parameters('keyVaultName'), '/add')]",
+      "properties": {
+        "accessPolicies": [
+          {
+            "objectId": "[reference(resourceId('Microsoft.Web/sites/slots', parameters('webAppName'), parameters('deploymentSlots')[0]),'2018-11-01', 'full').identity.principalId]",
+            "permissions": {
+              "secrets": [ "get" ]
+            },
+            "tenantId":  "[subscription().tenantId]"
+          }
+        ]
+      }
+    }
+  ]
+}

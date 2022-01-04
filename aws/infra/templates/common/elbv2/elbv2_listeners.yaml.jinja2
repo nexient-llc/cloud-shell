@@ -1,0 +1,30 @@
+{% for listener in inputs.elbv2_listeners -%}
+- LoadBalancerArn: {{ listener.load_balancer_arn }}
+  Protocol: {{ listener.protocol }}
+  Port: {{ listener.port }}
+  {%- if listener.protocol == 'HTTPS' %}
+  SslPolicy: 'ELBSecurityPolicy-2016-08'
+  Certificates:
+  {% for certificate in listener.certificates -%}
+    - CertificateArn: {{ certificate.certificate_arn }}
+  {% endfor -%}
+  DefaultActions:
+    - Type: {{ listener.default_actions.type }}
+      ForwardConfig: 
+        {% for target_group in listener.default_actions.forward_config.target_groups -%}
+        TargetGroups:
+        - TargetGroupArn: {{ target_group.target_group_arn }} 
+          Weight: {{ target_group.weight }}
+        {% endfor -%}
+  {% elif listener.protocol == 'HTTP' %}
+  DefaultActions:
+    - Type: {{ listener.type }}
+      RedirectConfig:
+        Protocol: {{ listener.redirect_protocol }}
+        Port: "{{ listener.redirect_port }}"
+        StatusCode: HTTP_301
+  {% endif %}
+  Tags: 
+  - Key: 'ResourceTag' 
+    Value: '{{ inputs.tags.name }}' 
+{% endfor -%}

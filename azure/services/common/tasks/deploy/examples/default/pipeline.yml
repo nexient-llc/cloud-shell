@@ -1,0 +1,18 @@
+trigger: none
+pr: none
+
+resources:
+  repositories:
+  - repository: cloud-shell
+    type: github
+    name: dteenergy/cloud-shell
+    ref: refs/heads/deg_operations-5361
+    endpoint: dte-common-cloud-service-user
+
+extends:
+  template: /azure/services/common/tasks/deploy/template.yml@cloud-shell
+  parameters:
+    deploymentName: Hello
+    environmentName: Sandbox-Test
+    userSteps:
+    - script: echo 'Hello, world!'

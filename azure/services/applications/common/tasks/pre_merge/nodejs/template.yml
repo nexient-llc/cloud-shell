@@ -1,0 +1,54 @@
+parameters:
+- name: sourceDirectory
+  type: string
+  default: false
+
+- name: serviceName
+  type: string
+  default: false
+
+- name: mainBranch
+  type: string
+  default: false
+
+- name: prBranch
+  type: string
+  default: false
+
+- name: gitUserEmail
+  type: string
+  default: false
+
+- name: gitUserName
+  type: string
+  default: false
+
+- name: services 
+  type: object
+  default: []
+
+- name: runtimeVersion
+  type: string
+  default: false
+
+jobs:
+- ${{ each service in parameters.services }}:
+  - template: ../common/template.yml@cloud-shell
+    parameters:
+      mainBranch: ${{ parameters.mainBranch }}
+      prBranch: ${{ parameters.prBranch }}
+      gitUserEmail: ${{ parameters.gitUserEmail }}
+      gitUserName: ${{ parameters.gitUserName }}
+      serviceName: ${{ service.serviceName }}
+      usersteps:
+      - ${{ if ne(parameters.runtimeVersion, false) }}:
+        - task: NodeTool@0
+          inputs:
+            versionSpec: ${{ parameters.runtimeVersion }} 
+      - bash: |
+          echo "npm install" && npm install || exit 1
+          echo "npm run lint" && npm run lint || exit 1
+          echo "npm run test" && npm run test || exit 1
+          echo "npm run build" && npm run build || exit 1
+        workingDirectory: ${{ service.sourceDirectory }}
+        displayName: Lint, Test, and Build

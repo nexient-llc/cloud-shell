@@ -1,0 +1,43 @@
+parameters:
+- name: environments
+  type: object
+  default: []
+
+- name: common
+  type: object
+  default: []
+
+
+stages:
+- ${{ each env in parameters.environments }}:
+  - ${{ if eq(env.manualValidation, true) }}:
+    - stage: ${{ env.shortName }}_pre_config
+      jobs:
+      - template: /azure/services/common/tasks/manual_validation/template.yml@cloud-shell 
+        parameters:
+          jobName:  ${{ env.shortName }}_manual_validation
+          displayName: Manual Validation
+          jobTimeoutInMinutes:  ${{ coalesce(env.common.jobTimeoutInMinutes, parameters.common.jobTimeoutInMinutes) }}
+          taskTimeoutInMinutes:  ${{ coalesce(env.common.taskTimeoutInMinutes, parameters.common.taskTimeoutInMinutes) }}
+          onTimeout: ${{ coalesce(env.common.onTimeout, parameters.common.onTimeout) }}
+
+  - stage: ${{ env.shortName }}_config
+    jobs:
+    - ${{ each deployment in env.deployments }}:
+      - template: /azure/services/applications/functions/tasks/configure/template.yml@cloud-shell
+        parameters:
+          deploymentName: ${{ deployment.name }}
+          environmentName: ${{ env.fullName }}  
+          dependsOn: ${{ deployment.dependsOn }}
+          condition: ${{ coalesce(deployment.condition, env.common.condition, parameters.common.condition, true) }}
+          resourceGroup: ${{ coalesce(deployment.resourceGroup, env.common.resourceGroup, parameters.common.resourceGroup, false) }} 
+          serviceConnection: ${{ coalesce(deployment.serviceConnection, env.common.serviceConnection, parameters.common.serviceConnection, false) }}
+          deploymentSlot: ${{ coalesce(deployment.deploymentSlot, env.common.deploymentSlot, parameters.common.deploymentSlot, 'production') }}
+          funcAppName: ${{ coalesce(deployment.funcAppName, env.common.funcAppName, parameters.common.funcAppName, false) }}
+          funcAppSettings:
+          - ${{ each settingsFile in parameters.common.funcAppSettings }}:
+            - ${{ settingsFile }}
+          - ${{ each settingsFile in env.common.funcAppSettings }}:
+            - ${{ settingsFile }}
+          - ${{ each settingsFile in deployment.funcAppSettings }}:
+            - ${{ settingsFile }}

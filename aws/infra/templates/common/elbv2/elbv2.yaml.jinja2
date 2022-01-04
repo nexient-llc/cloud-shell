@@ -1,0 +1,15 @@
+Name: {{inputs.elbv2.name}}
+Subnets:
+{% for subnet in inputs.elbv2.subnets -%}
+ - {{ subnet }}
+{% endfor -%}
+SecurityGroups: 
+{% for security_group in inputs.elbv2.security_groups -%}
+ - {{ security_group }}
+{% endfor -%}
+Scheme: {{inputs.elbv2.scheme}}
+Tags:
+- Key: 'ResourceTag'
+  Value: {{ inputs.tags.name }}
+Type: {{inputs.elbv2.type}}
+IpAddressType: {{inputs.elbv2.ip_address_type}}

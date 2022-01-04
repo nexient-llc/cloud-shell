@@ -1,0 +1,11 @@
+GroupId: {{ inputs.security_group.security_group_ingress.group_id }}
+IpPermissions:
+  {% for mapping in inputs.security_group.security_group_ingress.ip_mappings -%}
+  - FromPort: {{ mapping.from_port }}
+    IpProtocol: {{ mapping.ip_protocol }}
+    IpRanges:
+      - CidrIp: {{ mapping.ip_ranges }}
+        Description: "{{ mapping.description }}"
+    ToPort: {{ mapping.to_port }}
+  {% endfor -%}
+

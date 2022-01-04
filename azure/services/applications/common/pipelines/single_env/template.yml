@@ -1,0 +1,63 @@
+parameters:
+- name: env
+  type: object
+  default: []
+
+- name: common
+  type: object
+  default: []
+
+- name: deployStages
+  type: stageList
+  default: []
+
+
+stages:
+- ${{ if eq(parameters.env.createArtifact, true) }}:
+  - stage: ${{ parameters.env.shortName }}_rc
+    jobs:
+    - ${{ each deployment in parameters.env.deployments }}:
+      - template: ../../tasks/create_artifact/${{ coalesce(deployment.runtime, parameters.env.common.runtime, parameters.common.runtime, false) }}/template.yml@cloud-shell 
+        parameters:
+          runtimeVersion: ${{ coalesce(deployment.runtimeVersion, parameters.env.common.runtimeVersion, parameters.common.runtimeVersion, false) }} 
+          artifactType: 'rc'
+          artifactFeed: ${{ coalesce(deployment.artifactFeed, parameters.env.common.artifactFeed, parameters.common.artifactFeed) }} 
+          condition: ${{ coalesce(deployment.condition, parameters.env.common.condition, parameters.common.condition, true) }} 
+          sourceDirectory: ${{ coalesce(deployment.sourceDirectory, parameters.env.common.sourceDirectory, parameters.common.sourceDirectory) }}
+          funcDirectory: ${{ coalesce(deployment.funcDirectory, parameters.env.common.funcDirectory, parameters.common.funcDirectory) }}
+          artifactName: ${{ coalesce(deployment.artifactName, parameters.env.common.artifactName, parameters.common.artifactName) }}
+          serviceName: ${{ deployment.name }}
+          jobName: ReleaseCandidate_${{ deployment.name }}
+          displayName: ${{ deployment.name }} Release Candidate
+          tagsIncludeName: ${{ coalesce(deployment.tagsIncludeName, parameters.env.common.tagsIncludeName, parameters.common.tagsIncludeName) }}
+          outputDirectory: ${{ coalesce(deployment.outputDirectory, parameters.env.common.outputDirectory, parameters.common.outputDirectory, '$(Build.ArtifactStagingDirectory)') }}
+          ${{ if eq(coalesce(deployment.runtime, parameters.env.common.runtime, parameters.common.runtime, false), 'nodejs') }}:
+            buildVariables:
+              ${{ each var in parameters.common.buildVariables }}:
+                ${{ var.Key }}: ${{ var.Value }}
+              ${{ each var in parameters.env.common.buildVariables }}:
+                ${{ var.Key }}: ${{ var.Value }}
+              ${{ each var in deployment.buildVariables }}:
+                ${{ var.Key }}: ${{ var.Value }}
+            bundleNodeModules: ${{ coalesce(deployment.bundleNodeModules, parameters.env.common.bundleNodeModules, parameters.common.bundleNodeModules, false) }}
+
+- ${{ each stage in parameters.deployStages }}:
+  - ${{ stage }}
+
+- ${{ if eq(parameters.env.createArtifact, true) }}:
+  - stage: ${{ parameters.env.shortName }}_or
+    jobs:
+    - ${{ each deployment in parameters.env.deployments }}:
+      - template: ../../tasks/create_artifact/${{ coalesce(deployment.runtime, parameters.env.common.runtime, parameters.common.runtime, false) }}/template.yml@cloud-shell
+        parameters:
+          artifactType: 'or'
+          createFromExisting: 'rc'
+          condition: ${{ coalesce(deployment.condition, parameters.env.common.condition, parameters.common.condition, true) }} 
+          artifactFeed: ${{ coalesce(deployment.artifactFeed, parameters.env.common.artifactFeed, parameters.common.artifactFeed) }} 
+          sourceDirectory: ${{ coalesce(deployment.sourceDirectory, parameters.env.common.sourceDirectory, parameters.common.sourceDirectory) }}
+          funcDirectory: ${{ coalesce(deployment.funcDirectory, parameters.env.common.funcDirectory, parameters.common.funcDirectory) }}
+          artifactName: ${{ coalesce(deployment.artifactName, parameters.env.common.artifactName, parameters.common.artifactName) }}
+          serviceName: ${{ deployment.name }}
+          jobName: OfficialRelease_${{ deployment.name }}
+          displayName: ${{ deployment.name }} Official Release
+          tagsIncludeName: ${{ coalesce(deployment.tagsIncludeName, parameters.env.common.tagsIncludeName, parameters.common.tagsIncludeName) }}

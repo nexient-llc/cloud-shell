@@ -1,0 +1,634 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "webAppName": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the web application."
+      }
+    },
+    "deploymentSlots": {
+      "type": "array",
+      "metadata": {
+        "description": "Names of deployment slots."
+      }
+    },
+    "location": {
+      "type": "string",
+      "metadata": {
+        "description": "Resource Location."
+      }
+    },
+    "hostingPlanProps": {
+      "type": "object",
+      "metadata": {
+        "description": "AppServicePlan resource specific properties."
+      }
+    },
+    "httpsOnly": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "Configures a web site to accept only https requests. Issues redirect for http requests."
+      }
+    },
+    "sku": {
+      "type": "string",
+      "metadata": {
+        "description": "Description of a SKU for a scalable resource."
+      }
+    },
+    "appInsightsName": {
+      "type": "string",
+      "metadata": {
+        "description": "The resource name for app insights."
+      }
+    },
+    "technicalActionGroupName": {
+      "type": "string",
+      "metadata": {
+        "description": "Technical action group name."
+      }
+    },
+    "technicalActionGroupEmails": {
+      "type": "array",
+      "metadata": {
+        "description": "The list of email receivers that are part of technical action group."
+      }
+    },
+    "budgetName": {
+      "type": "string",
+      "metadata": {
+        "description": "Budget name."
+      }
+    },
+    "budgetAmount": {
+      "type": "int",
+      "metadata": {
+        "description": "The total amount of cost to track with the budget."
+      }
+    },
+    "budgetTimeGrain": {
+      "type": "string",
+      "metadata": {
+        "description": "The time covered by a budget. Tracking of the amount will be reset based on the time grain. BillingMonth, BillingQuarter, and BillingAnnual are only supported by WD customers."
+      },
+      "allowedValues": [
+        "Annually",
+        "BillingAnnual",
+        "BillingMonth",
+        "BillingQuarter",
+        "Monthly",
+        "Quarterly"
+      ]
+    },
+    "budgetStartDate": {
+      "type": "string",
+      "metadata": {
+        "description": "The start date for the budget."
+      }
+    },
+    "enableAlerts": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "Indicates if alerts are enabled."
+      }
+    },
+    "metricAlertWindowSize": {
+      "type": "string",
+      "defaultValue": "PT5M",
+      "metadata": {
+        "description": "The period of time (in ISO 8601 duration format) that is used to monitor alert activity based on the threshold."
+      }
+    },
+    "metricAlertFrequency": {
+      "type": "string",
+      "defaultValue": "PT5M",
+      "metadata": {
+        "description": "How often the metric alert is evaluated represented in ISO 8601 duration format."
+      }
+    },
+    "metricAlertSensitivity": {
+      "type": "string",
+      "defaultValue": "Medium",
+      "metadata": {
+        "description": "The extent of deviation required to trigger an alert. This will affect how tight the threshold is to the metric series pattern."
+      },
+      "allowedValues": [
+        "High",
+        "Low",
+        "Medium"
+      ]
+    },
+    "metricAlertViolationThreshold": {
+      "type": "int",
+      "defaultValue": 4,
+      "metadata": {
+        "description": "The minimum number of violations required within the selected lookback time window required to raise an alert."
+      }
+    },
+    "frontDoorName": {
+      "type": "string",
+      "metadata": {
+        "description": "Front door resource name."
+      }
+    },
+    "wafPolicyName": {
+      "type": "string",
+      "metadata": {
+        "description": "WAF policy resource name."
+      }
+    },
+    "policySettings": {
+      "type": "object",
+      "metadata": {
+        "description": "Defines top-level WebApplicationFirewallPolicy configuration settings."
+      }
+    },
+    "loadBalancingSampleSize": {
+      "type": "int",
+      "metadata": {
+        "description": "The number of samples to consider for load balancing decisions and health probe responses."
+      }
+    },
+    "loadBalancingSuccessfulSamplesRequired": {
+      "type": "int",
+      "metadata": {
+        "description": "The number of samples within the sample period that must succeed."
+      }
+    },
+    "managedRuleSetType": {
+      "type": "string",
+      "defaultValue": "DefaultRuleSet",
+      "metadata": {
+        "description": "Defines the rule set type to use."
+      }
+    },
+    "managedRuleSetRuleSetVersion": {
+      "type": "string",
+      "defaultValue": "1.0",
+      "metadata": {
+        "description": "Defines the version of the rule set to use."
+      }
+    },
+    "applicationLogLevel": {
+      "type": "string",
+      "defaultValue": "Information",
+      "metadata": {
+        "description": "Log level."
+      },
+      "allowedValues": [
+        "Error",
+        "Information",
+        "Off",
+        "Verbose",
+        "Warning"
+      ]
+    },
+    "httpLogsEnabled": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "Defines if HTTP logs are enabled."
+      }
+    },
+    "httpLogsRetentionInDays": {
+      "type": "int",
+      "defaultValue": 90,
+      "metadata": {
+        "description": "Retention in days.Remove blobs older than X days.0 or lower means no retention."
+      }
+    },
+    "httpLogsRetentionInMb": {
+      "type": "int",
+      "defaultValue": 100,
+      "metadata": {
+        "description": "Maximum size in megabytes that http log files can use.When reached old log files will be removed to make space for new ones.Value can range between 25 and 100."
+      }
+    },
+    "appInsightAgentExtensionVersion": {
+      "type": "string"
+    },
+    "minTlsVersion": {
+      "type": "string",
+      "defaultValue": "1.2"
+    },
+    "alwaysOn": {
+      "type": "bool",
+      "defaultValue": true
+    },
+    "healthProbeSettingsProperties": {
+      "type": "object",
+      "defaultValue": [],
+      "metadata": {
+        "description": "Health probe settings associated with this Front Door instance."
+      }
+    },
+    "resetAppSettings": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "Reset the app settings only if the value is true."
+      }
+    },
+    "frontDoorObjectId": {
+      "type": "string",
+      "defaultValue": false,
+      "metadata": {
+        "description": "Object id of the service principal of Front Door registered in Azure AD."
+      }
+    },
+    "keyVaultName": {
+      "type": "string",
+      "defaultValue": false,
+      "metadata": {
+        "description": "Name of the key vault."
+      }
+    },
+    "frontendEndpointConfig": {
+      "type": "array",
+      "defaultValue": [],
+      "metadata": {
+        "description": "Names of the frontend endpoints and host names to be associated with front door."
+      }
+    }
+  },
+  "variables": {
+    "backendPoolName": "[concat(parameters('frontDoorName'), '-backendPool')]",
+    "loadBalancingSettingName": "[concat(parameters('frontDoorName'), '-loadBalancingSetting')]",
+    "healthProbeSettingName": "[concat(parameters('frontDoorName'), '-healthProbeSetting')]",
+    "routingRuleName": "[concat(parameters('frontDoorName'), '-routingRule')]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Web/sites",
+      "apiVersion": "2019-08-01",
+      "name": "[parameters('webAppName')]",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[concat('Microsoft.Web/serverfarms/', parameters('hostingPlanProps').name)]",
+        "[concat('microsoft.insights/components/', parameters('appInsightsName'))]"
+      ],
+      "kind": "webapp,linux,container",
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "properties": {
+        "name": "[parameters('webAppName')]",
+        "httpsOnly": "[parameters('httpsOnly')]",
+        "siteConfig": {
+          "alwaysOn": "[parameters('alwaysOn')]",
+          "minTlsVersion": "[parameters('minTlsVersion')]"
+        },
+        "serverFarmId": "[concat(resourceId('Microsoft.Web/serverfarms/', parameters('hostingPlanProps').name))]",
+        "clientAffinityEnabled": false
+      },
+      "resources": [
+        {
+          "name": "appsettings",
+          "type": "config",
+          "apiVersion": "2019-08-01",
+          "condition": "[parameters('resetAppSettings')]",
+          "dependsOn": [
+            "[resourceId('Microsoft.Web/sites', parameters('webAppName'))]"
+          ],
+          "properties": {
+            "APPINSIGHTS_INSTRUMENTATIONKEY": "[reference(concat('microsoft.insights/components/', parameters('appInsightsName')), '2015-05-01').InstrumentationKey]",
+            "APPLICATIONINSIGHTS_CONNECTION_STRING": "[reference(concat('microsoft.insights/components/', parameters('appInsightsName')), '2015-05-01').Connectionstring]",
+            "ApplicationInsightsAgent_EXTENSION_VERSION": "[parameters('appInsightAgentExtensionVersion')]"
+          }
+        }
+      ]
+    },
+    {
+      "type": "Microsoft.Web/sites/config",
+      "apiVersion": "2021-02-01",
+      "name": "[concat(parameters('webAppName'),'/logs')]",
+      "kind": "config",
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/sites', parameters('webAppName'))]"
+      ],
+      "properties": {
+        "applicationLogs": {
+          "fileSystem": {
+            "level": "[parameters('applicationLogLevel')]"
+          }
+        },
+        "httpLogs": {
+          "fileSystem": {
+            "enabled": "[parameters('httpLogsEnabled')]",
+            "retentionInDays": "[parameters('httpLogsRetentionInDays')]",
+            "retentionInMb": "[parameters('httpLogsRetentionInMb')]"
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Web/sites/slots",
+      "name": "[concat(parameters('webAppName'), '/', parameters('deploymentSlots')[copyIndex()])]",
+      "condition": "[not(equals(parameters('deploymentSlots')[copyIndex()], 'false'))]",
+      "apiVersion": "2018-11-01",
+      "copy": {
+        "name": "deploymentSlotLoop",
+        "count": "[length(parameters('deploymentSlots'))]"
+      },
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/sites', parameters('webAppName'))]"
+      ],
+      "location": "[parameters('location')]",
+      "properties": "[reference(resourceId('Microsoft.Web/sites', parameters('webAppName'))).siteProperties]"
+    },
+    {
+      "type": "Microsoft.Web/serverfarms",
+      "apiVersion": "2018-02-01",
+      "name": "[parameters('hostingPlanProps').name]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "[parameters('sku')]"
+      },
+      "kind": "linux",
+      "properties": "[parameters('hostingPlanProps')]"
+    },
+    {
+      "apiVersion": "2015-05-01",
+      "name": "[parameters('appInsightsName')]",
+      "type": "microsoft.insights/components",
+      "location": "[parameters('location')]",
+      "tags": {},
+      "properties": {
+        "ApplicationId": "[parameters('appInsightsName')]",
+        "Request_Source": "IbizaWebAppExtensionCreate",
+        "Application_Type": "web"
+      }
+    },
+    {
+      "type": "microsoft.insights/actionGroups",
+      "name": "[parameters('technicalActionGroupName')]",
+      "apiVersion": "2019-06-01",
+      "location": "global",
+      "properties": {
+        "groupShortName": "technical",
+        "enabled": true,
+        "copy": [
+          {
+            "name": "emailReceivers",
+            "count": "[length(parameters('technicalActionGroupEmails'))]",
+            "input": {
+              "emailAddress": "[parameters('technicalActionGroupEmails')[copyIndex('emailReceivers')]]",
+              "name": "[concat('action-email-', copyIndex('emailReceivers'))]",
+              "useCommonAlertSchema": true
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Consumption/budgets",
+      "apiVersion": "2019-10-01",
+      "name": "[parameters('budgetName')]",
+      "dependsOn": [
+        "[resourceId('microsoft.insights/actionGroups', parameters('technicalActionGroupName'))]"
+      ],
+      "properties": {
+        "timePeriod": {
+          "startDate": "[parameters('budgetStartDate')]"
+        },
+        "timeGrain": "[parameters('budgetTimeGrain')]",
+        "amount": "[parameters('budgetAmount')]",
+        "category": "Cost",
+        "notifications": {
+          "BudgetExceeded": {
+            "enabled": "[parameters('enableAlerts')]",
+            "operator": "GreaterThan",
+            "threshold": 100,
+            "contactEmails": [],
+            "contactRoles": [],
+            "contactGroups": [
+              "[resourceId('microsoft.insights/actionGroups', parameters('technicalActionGroupName'))]"
+            ]
+          }
+        },
+        "filter": {
+          "dimensions": {
+            "name": "ResourceGroupName",
+            "operator": "In",
+            "values": [
+              "[resourceGroup().name]"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Insights/metricAlerts",
+      "apiVersion": "2018-03-01",
+      "location": "global",
+      "name": "[concat(parameters('appInsightsName'), '-slow-request-rule')]",
+      "dependsOn": [
+        "[resourceId('microsoft.insights/components', parameters('appInsightsName'))]"
+      ],
+      "properties": {
+        "description": "Alert for slow server response time",
+        "severity": 1,
+        "enabled": "[parameters('enableAlerts')]",
+        "evaluationFrequency": "[parameters('metricAlertFrequency')]",
+        "windowSize": "[parameters('metricAlertWindowSize')]",
+        "targetResourceType": "microsoft.insights/components",
+        "criteria": {
+          "allOf": [
+            {
+              "criterionType": "DynamicThresholdCriterion",
+              "metricName": "requests/duration",
+              "metricNamespace": "microsoft.insights/components",
+              "name": "HighAvgRequestDuration",
+              "operator": "GreaterThan",
+              "alertSensitivity": "[parameters('metricAlertSensitivity')]",
+              "timeAggregation": "Average",
+              "failingPeriods": {
+                "numberOfEvaluationPeriods": "[parameters('metricAlertViolationThreshold')]",
+                "minFailingPeriodsToAlert": "[parameters('metricAlertViolationThreshold')]"
+              }
+            }
+          ],
+          "odata.type": "Microsoft.Azure.Monitor.MultipleResourceMultipleMetricCriteria"
+        },
+        "scopes": [
+          "[resourceId('microsoft.insights/components', parameters('appInsightsName'))]"
+        ],
+        "actions": [
+          {
+            "actionGroupId": "[resourceId('microsoft.insights/actionGroups', parameters('technicalActionGroupName'))]"
+          }
+        ]
+      }
+    },
+    {
+      "type": "microsoft.alertsmanagement/smartdetectoralertrules",
+      "apiVersion": "2019-03-01",
+      "name": "[concat('Failure Anomalies - ', parameters('appInsightsName'))]",
+      "location": "global",
+      "dependsOn": [
+        "[resourceId('microsoft.insights/actionGroups', parameters('technicalActionGroupName'))]"
+      ],
+      "properties": {
+        "description": "Unusual rise in the rate of failed HTTP requests or dependency calls.",
+        "state": "Enabled",
+        "severity": "2",
+        "frequency": "PT1M",
+        "detector": {
+          "id": "FailureAnomaliesDetector"
+        },
+        "scope": [
+          "[resourceId('microsoft.insights/components', parameters('appInsightsName'))]"
+        ],
+        "actionGroups": {
+          "groupIds": [
+            "[resourceId('microsoft.insights/actionGroups', parameters('technicalActionGroupName'))]"
+          ]
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Network/frontDoors",
+      "apiVersion": "2020-05-01",
+      "name": "[parameters('frontDoorName')]",
+      "location": "global",
+      "properties": {
+        "enabledState": "Enabled",
+        "copy": [
+          {
+            "name": "frontendEndpoints",
+            "count": "[length(parameters('frontendEndpointConfig'))]",
+            "input": {
+              "name": "[parameters('frontendEndpointConfig')[copyIndex('frontendEndpoints')].name]",
+              "properties": {
+                "hostName": "[parameters('frontendEndpointConfig')[copyIndex('frontendEndpoints')].hostName]",
+                "sessionAffinityEnabledState": "Disabled",
+                "webApplicationFirewallPolicyLink": {
+                  "id": "[resourceId('Microsoft.Network/FrontDoorWebApplicationFirewallPolicies', parameters('wafPolicyName'))]"
+                }
+              }
+            }
+          }
+        ],
+        "loadBalancingSettings": [
+          {
+            "name": "[variables('loadBalancingSettingName')]",
+            "properties": {
+              "sampleSize": "[parameters('loadBalancingSampleSize')]",
+              "successfulSamplesRequired": "[parameters('loadBalancingSuccessfulSamplesRequired')]"
+            }
+          }
+        ],
+        "healthProbeSettings": [
+          {
+            "name": "[variables('healthProbeSettingName')]",
+            "properties": "[parameters('healthProbeSettingsProperties')]"
+          }
+        ],
+        "backendPools": [
+          {
+            "id": "[resourceId('Microsoft.Network/frontdoors/backendPools', parameters('frontDoorName'), variables('backendPoolName'))]",
+            "name": "[variables('backendPoolName')]",
+            "properties": {
+              "backends": [
+                {
+                  "address": "[reference(resourceId('Microsoft.Web/sites', parameters('webAppName'))).hostNames[0]]",
+                  "backendHostHeader": "[reference(resourceId('Microsoft.Web/sites', parameters('webAppName'))).hostNames[0]]",
+                  "httpPort": 80,
+                  "httpsPort": 443,
+                  "weight": 50,
+                  "priority": 1,
+                  "enabledState": "Enabled"
+                }
+              ],
+              "loadBalancingSettings": {
+                "id": "[resourceId('Microsoft.Network/frontDoors/loadBalancingSettings', parameters('frontDoorName'), variables('loadBalancingSettingName'))]"
+              },
+              "healthProbeSettings": {
+                "id": "[resourceId('Microsoft.Network/frontDoors/healthProbeSettings', parameters('frontDoorName'), variables('healthProbeSettingName'))]"
+              }
+            }
+          }
+        ],
+        "routingRules": [
+          {
+            "name": "[variables('routingRuleName')]",
+            "properties": {
+              "copy": [
+                {
+                  "name": "frontendEndpoints",
+                  "count": "[length(parameters('frontendEndpointConfig'))]",
+                  "input": {
+                    "id": "[resourceId('Microsoft.Network/frontDoors/frontEndEndpoints', parameters('frontDoorName'), parameters('frontendEndpointConfig')[copyIndex('frontendEndpoints')].name)]"
+                  }
+                }
+              ],
+              "acceptedProtocols": [
+                "Http",
+                "Https"
+              ],
+              "patternsToMatch": [
+                "/*"
+              ],
+              "routeConfiguration": {
+                "@odata.type": "#Microsoft.Azure.FrontDoor.Models.FrontdoorForwardingConfiguration",
+                "forwardingProtocol": "MatchRequest",
+                "backendPool": {
+                  "id": "[resourceId('Microsoft.Network/frontDoors/backEndPools', parameters('frontDoorName'), variables('backendPoolName'))]"
+                }
+              },
+              "enabledState": "Enabled"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "[resourceId('Microsoft.Network/FrontDoorWebApplicationFirewallPolicies', parameters('wafPolicyName'))]",
+      "apiVersion": "2019-03-01",
+      "type": "Microsoft.Network/FrontDoorWebApplicationFirewallPolicies",
+      "name": "[parameters('wafPolicyName')]",
+      "location": "global",
+      "properties": {
+        "policySettings": "[parameters('policySettings')]",
+        "managedRules": {
+          "managedRuleSets": [
+            {
+              "ruleSetType": "[parameters('managedRuleSetType')]",
+              "ruleSetVersion": "[parameters('managedRuleSetRuleSetVersion')]"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults/accessPolicies",
+      "apiVersion": "2021-06-01-preview",
+      "name": "[concat(parameters('keyVaultName'), '/add')]",
+      "properties": {
+        "accessPolicies": [
+          {
+            "objectId": "[parameters('frontDoorObjectId')]",
+            "permissions": {
+              "certificates": [
+                "get",
+                "list"
+              ],
+              "secrets": [
+                "get",
+                "list"
+              ]
+            },
+            "tenantId": "[subscription().tenantId]"
+          }
+        ]
+      }
+    }
+  ]
+}

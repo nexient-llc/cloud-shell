@@ -1,0 +1,72 @@
+parameters:
+  - name: sourceDirectory
+    type: string
+    default: false
+
+  - name: serviceName
+    type: string
+    default: false
+
+  - name: mainBranch
+    type: string
+    default: false
+
+  - name: prBranch
+    type: string
+    default: false
+
+  - name: gitUserEmail
+    type: string
+    default: false
+
+  - name: gitUserName
+    type: string
+    default: false
+
+  - name: services
+    type: object
+    default: []
+
+  - name: buildArguments
+    type: string
+    default: false
+
+  - name: testCommands
+    type: object
+    default: []
+
+  - name: testEnvFile
+    type: string
+    default: false
+
+jobs:
+  - ${{ each service in parameters.services }}:
+      - template: ../common/template.yml@cloud-shell
+        parameters:
+          mainBranch: ${{ parameters.mainBranch }}
+          prBranch: ${{ parameters.prBranch }}
+          gitUserEmail: ${{ parameters.gitUserEmail }}
+          gitUserName: ${{ parameters.gitUserName }}
+          serviceName: ${{ service.serviceName }}
+          usersteps:
+            - task: Docker@2
+              displayName: Build image
+              inputs:
+                command: build
+                Dockerfile: ${{ service.sourceDirectory }}/Dockerfile
+                arguments: ${{ service.buildArguments }}
+                repository: ${{ service.serviceName }}
+
+            - ${{ each command in service.testCommands }}:
+                - task: Bash@3
+                  displayName: Run ${{ command }}
+                  inputs:
+                    targetType: inline
+                    script: |
+                      docker run \
+                        --attach STDERR \
+                        --attach STDOUT \
+                        --env-file ${{ service.testEnvFile }} \
+                        --user 0 \
+                        ${{ service.serviceName }}:$(Build.BuildId) \
+                        /bin/bash -c '${{ command }}'
